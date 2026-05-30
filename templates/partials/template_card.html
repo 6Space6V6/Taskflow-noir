@@ -1,0 +1,39 @@
+<div class="template-card noir-card p-6 rounded-2xl animate-fade-in-up" data-id="{{template.id}}">
+    <div class="flex justify-between items-start mb-4">
+        <div>
+            <h3 class="text-lg font-bold text-white">{{template.name}}</h3>
+            <span class="text-xs text-gray-500 uppercase tracking-widest font-bold">{{template.category}} • {{template.priority}}</span>
+        </div>
+        <div class="flex space-x-2">
+            <button onclick="useTemplate({{template.id}})" class="text-gray-600 hover:text-green-500 transition text-sm p-2" title="Use Template"><i class="fas fa-play"></i></button>
+            <button onclick="deleteTemplate({{template.id}})" class="text-gray-600 hover:text-red-500 transition text-sm p-2" title="Delete"><i class="fas fa-trash-alt"></i></button>
+        </div>
+    </div>
+    
+    {% if template.tags %}
+    <div class="mb-4 flex flex-wrap gap-2">
+        {% for tag in template.tags.split(',') %}
+        <span class="text-[10px] glass-panel px-2 py-0.5 rounded text-gray-500">{{tag.strip()}}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if template.notes %}
+    <p class="text-xs text-gray-600 mb-4 italic leading-relaxed">
+        <i class="fas fa-sticky-note mr-1 opacity-50"></i> {{template.notes[:120]}}{% if template.notes|length > 120 %}...{% endif %}
+    </p>
+    {% endif %}
+
+    {% if template.template_subtasks %}
+    <div class="border-t border-white/5 pt-4 mt-4">
+        <p class="text-[10px] text-gray-600 uppercase font-bold mb-3 tracking-widest">{{template.template_subtasks|length}} Subtasks</p>
+        <div class="space-y-2">
+            {% for sub in template.template_subtasks %}
+            <div class="text-xs text-gray-400 flex items-center">
+                <i class="fas fa-circle text-[4px] mr-3 opacity-30"></i> {{sub.title}}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>

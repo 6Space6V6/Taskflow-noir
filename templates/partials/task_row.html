@@ -1,0 +1,120 @@
+<tr class="task-row transition group cursor-pointer" 
+    data-task-id="{{project.id}}" 
+    data-priority="{{project.priority}}" 
+    data-title="{{project.title}}" 
+    data-category="{{project.category}}"
+    data-due-date="{{project.due_date if project.due_date else ''}}"
+    data-notes="{{project.notes|default('')}}"
+    data-tags="{{project.tags|default('')}}"
+    style="animation-delay: 0s">
+    <td class="p-4 text-center" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-center space-x-3">
+            <div class="drag-handle cursor-move text-gray-700 hover:text-white transition"><i class="fas fa-grip-vertical"></i></div>
+            <input type="checkbox" class="task-checkbox w-4 h-4 accent-white bg-black border-white/10 rounded cursor-pointer" data-task-id="{{project.id}}" onchange="updateBulkSelection()">
+        </div>
+    </td>
+    <td class="p-4 cursor-pointer" onclick="toggleSubtasks({{project.id}})">
+        <div class="flex items-center space-x-4">
+            <i id="icon-{{project.id}}" class="fas fa-chevron-right text-xs text-gray-700 transition-transform"></i>
+            <div class="flex-1">
+                <div class="font-bold text-gray-200 text-lg">{{project.title}}</div>
+                {% if project.tags_list %}<div class="mt-1">{% for tag in project.tags_list %}<span class="tag-badge text-gray-500">{{tag}}</span>{% endfor %}</div>{% endif %}
+                {% if project.notes %}<div class="text-xs text-gray-700 mt-1"><i class="fas fa-sticky-note mr-1"></i> {{project.notes[:50]}}{% if project.notes|length > 50 %}...{% endif %}</div>{% endif %}
+                <div class="progress-container"><div class="progress-bar" style="width:{{project.progress}}%"></div></div>
+                <div class="flex items-center space-x-2 mt-1">
+                    <span class="text-xs text-gray-600 uppercase tracking-tighter">{{project.category}} • {{project.progress}}%</span>
+                    {% if project.is_overdue %}<span class="overdue-badge">⚠ Overdue</span>{% elif project.days_remaining is not none and project.days_remaining <= 2 and project.days_remaining >= 0 %}<span class="text-[10px] text-orange-500">⏳ Due soon</span>{% endif %}
+                </div>
+            </div>
+        </div>
+    </td>
+    <td class="p-4 text-center" onclick="event.stopPropagation()">
+        <div class="date-wrapper">
+            <div class="relative group">
+                <input type="date" value="{{project.due_date if project.due_date else ''}}" onchange="updateDeadline({{project.id}},this.value)" class="bg-transparent text-sm">
+                <i class="fas fa-calendar-alt cal-icon"></i>
+                {% if project.due_date %}
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-black text-[10px] text-white px-2 py-1 rounded whitespace-nowrap z-50 border border-white/10 relative-date" data-date="{{project.due_date}}" id="rel-{{project.id}}">
+                    {{project.due_date.strftime('%Y-%m-%d')}}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </td>
+    <td class="p-4 text-center" onclick="event.stopPropagation()">
+        <span class="text-sm font-bold px-3 py-1 rounded border {% if project.priority=='Urgent' %}border-red-500/30 text-red-500 bg-red-500/5 urgent-glow{% elif project.priority=='High' %}border-orange-500/30 text-orange-500 bg-orange-500/5{% else %}border-white/10 text-gray-600{% endif %}">{{project.priority.upper()}}</span>
+    </td>
+    <td class="p-4 text-right space-x-4" onclick="event.stopPropagation()">
+        <button onclick="openEditModal({{project.id}}, this)" class="text-gray-600 hover:text-blue-400 transition text-lg" title="Edit"><i class="fas fa-edit"></i></button>
+        <button onclick="openCompleteConfirm({{project.id}})" class="text-gray-600 hover:text-green-500 transition text-lg" title="Complete"><i class="fas fa-check"></i></button>
+        <button onclick="openSubModal({{project.id}})" class="text-gray-600 hover:text-white transition text-lg" title="Add Subtask"><i class="fas fa-plus"></i></button>
+        <button onclick="openAddSideProjectModal({{project.id}}, this)" class="text-gray-600 hover:text-yellow-400 transition text-lg" title="Add Side Project"><i class="fas fa-folder"></i></button>
+        <button onclick="openDeleteConfirm({{project.id}})" class="text-gray-600 hover:text-red-500 transition text-lg" title="Delete"><i class="fas fa-trash-alt"></i></button>
+    </td>
+</tr>
+{% macro render_subtask(sub, depth) %}
+<div class="subtask-item-wrapper mt-1 space-y-2" data-subtask-id="{{sub.id}}" data-is-side-project="{{'true' if sub.is_side_project else 'false'}}" data-title="{{sub.title}}">
+    <div class="subtask-row flex items-center space-x-3 py-2 group {% if sub.is_side_project %}side-project-row bg-white/[0.01] p-3 rounded-xl border border-white/5{% endif %}">
+        
+        <!-- Drag handle: shown for all subtasks and side projects at all levels -->
+        <div class="drag-handle-sub cursor-move text-gray-600 hover:text-white px-1">⋮⋮</div>
+        
+        {% if sub.is_side_project %}
+            <!-- Expand/collapse chevron -->
+            <button onclick="event.stopPropagation(); toggleSubtaskCollapse({{sub.id}})" class="text-gray-600 hover:text-white transition text-xs w-4 flex items-center justify-center">
+                <i id="sub-chevron-{{sub.id}}" class="fas fa-chevron-right chevron-icon"></i>
+            </button>
+            <span class="text-gray-500 mr-1 text-sm">📁</span>
+            <div class="flex-1 flex items-center space-x-2">
+                <span id="sub-text-{{sub.id}}" class="text-base font-bold text-gray-200">{{sub.title}}</span>
+                <input type="text" id="sub-input-{{sub.id}}" class="hidden flex-1 bg-white/5 p-1 rounded text-sm focus:outline-none focus:border-white/30" style="border:1px solid var(--border)" value="{{sub.title}}" onblur="saveSubtaskEdit({{sub.id}})" onkeydown="if(event.key==='Enter')saveSubtaskEdit({{sub.id}})">
+            </div>
+        {% else %}
+            <!-- Regular checklist Subtask -->
+            <span class="w-4"></span>
+            <input type="checkbox" {% if sub.is_completed %}checked{% endif %} onchange="toggleSubtask({{sub.id}})" onclick="event.stopPropagation()" class="w-4 h-4 accent-white bg-black border-white/10 rounded cursor-pointer">
+            <div class="flex-1 flex items-center space-x-2">
+                <span id="sub-text-{{sub.id}}" class="text-base flex-1 {{'line-through text-gray-600' if sub.is_completed else 'text-gray-300'}}">{{sub.title}}</span>
+                <input type="text" id="sub-input-{{sub.id}}" class="hidden flex-1 bg-white/5 p-1 rounded text-sm focus:outline-none focus:border-white/30" style="border:1px solid var(--border)" value="{{sub.title}}" onblur="saveSubtaskEdit({{sub.id}})" onkeydown="if(event.key==='Enter')saveSubtaskEdit({{sub.id}})">
+            </div>
+        {% endif %}
+        
+        <!-- Action buttons -->
+        <button id="sub-edit-btn-{{sub.id}}" onclick="event.stopPropagation();startSubtaskEdit({{sub.id}})" class="subtask-action-btn text-gray-600 hover:text-blue-400 transition text-sm"><i class="fas fa-pen"></i></button>
+        {% if sub.is_side_project %}
+        <button onclick="event.stopPropagation();openDeleteSideProjectConfirm({{sub.id}}, this)" class="subtask-action-btn text-gray-600 hover:text-red-500 transition text-sm" title="Delete"><i class="fas fa-trash-alt"></i></button>
+        {% else %}
+        <button onclick="event.stopPropagation();openDeleteSubtaskConfirm({{sub.id}}, this)" class="subtask-action-btn text-gray-600 hover:text-red-500 transition text-sm" title="Delete"><i class="fas fa-times"></i></button>
+        {% endif %}
+    </div>
+
+    <!-- Render container for children if it is a Side Project -->
+    {% if sub.is_side_project %}
+    <div id="sub-children-{{sub.id}}" class="border-l border-white/5 pl-4 ml-8 space-y-2 mt-2 subtasks-container animatable" data-project-id="{{sub.project_id}}" data-parent-id="{{sub.id}}">
+        {% for child in sub.children|sort(attribute='order_index') %}
+            {{ render_subtask(child, depth + 1) }}
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endmacro %}
+
+<tr id="subs-{{project.id}}" class="hidden bg-white/[0.01]">
+    <td colspan="5" class="p-4 pl-16 border-b border-white/5">
+        <div class="subtasks-container animatable space-y-3" data-project-id="{{project.id}}">
+            {% set root_subs = [] %}
+            {% for s in project.subtasks %}
+                {% if s.parent_id is none %}
+                    {% if root_subs.append(s) %}{% endif %}
+                {% endif %}
+            {% endfor %}
+            {% if root_subs %}
+                {% for sub in root_subs|sort(attribute='order_index') %}
+                {{ render_subtask(sub, 0) }}
+                {% endfor %}
+            {% else %}
+                <p class="text-xs text-gray-600 text-center py-2 no-subs-msg">No subtasks yet.</p>
+            {% endif %}
+        </div>
+    </td>
+</tr>

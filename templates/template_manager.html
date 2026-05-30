@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}Templates | TaskFlow Noir{% endblock %}
+
+{% block style %}
+    .template-card { transition: all 0.3s ease; }
+    .template-card:hover { border-color: rgba(255,255,255,0.3); transform: translateY(-2px); }
+    .fade-out { opacity: 0; transform: scale(0.9); transition: all 0.4s ease; pointer-events: none; }
+{% endblock %}
+
+{% block content %}
+    <header class="flex justify-between items-center mb-10">
+        <div>
+            <h2 class="text-4xl font-bold text-white tracking-tighter">Task Templates</h2>
+            <p class="text-gray-600 text-base">Create and manage reusable task structures</p>
+        </div>
+        <button onclick="openCreateTemplateModal()" class="px-8 py-3 rounded-full font-bold text-base transition hover:scale-105 active:scale-95" style="background:var(--accent);color:#000">+ New Template</button>
+    </header>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        {% for template in templates %}
+        {% include 'partials/template_card.html' %}
+        {% endfor %}
+
+        {% if templates|length == 0 %}
+            <div class="col-span-2 text-center py-20">
+                <i class="fas fa-layer-group text-6xl text-gray-800 mb-6"></i>
+                <h3 class="text-xl text-gray-600 font-bold mb-2">No Templates Yet</h3>
+                <p class="text-gray-700 text-sm">Create your first template to speed up your workflow</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Modals -->
+    <div id="createTemplateModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('createTemplateModal',event)">
+        <div class="noir-card p-8 rounded-3xl w-full max-w-lg shadow-2xl animate-fade-in-down" style="max-height:90vh;overflow-y:auto">
+            <h3 class="text-2xl font-bold mb-6 text-white tracking-tighter">Create New Template</h3>
+            <div class="space-y-5">
+                <div>
+                    <label class="text-xs text-gray-500 uppercase font-bold ml-1 block mb-2">Template Name *</label>
+                    <input type="text" id="templateName" class="w-full glass-panel p-4 rounded-xl text-base focus:outline-none focus:border-white/30" placeholder="e.g. Weekly Review">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs text-gray-500 uppercase font-bold ml-1 block mb-2">Category</label>
+                        <input type="text" id="templateCategory" class="w-full glass-panel p-4 rounded-xl text-base focus:outline-none focus:border-white/30" placeholder="e.g. Work">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500 uppercase font-bold ml-1 block mb-2">Priority</label>
+                        <select id="templatePriority" class="w-full glass-panel p-4 rounded-xl text-base focus:outline-none focus:border-white/30">
+                            <option value="Normal">Normal</option>
+                            <option value="High">High</option>
+                            <option value="Urgent">Urgent</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-xs text-gray-500 uppercase font-bold ml-1 block mb-2">Tags</label>
+                    <input type="text" id="templateTags" class="w-full glass-panel p-4 rounded-xl text-base focus:outline-none focus:border-white/30" placeholder="e.g. meeting, planning">
+                </div>
+
+                <div>
+                    <label class="text-xs text-gray-500 uppercase font-bold ml-1 block mb-2">Notes</label>
+                    <textarea id="templateNotes" rows="3" class="w-full bg-white/5 p-4 rounded-xl text-base focus:outline-none focus:border-white/30 resize-none" style="border:1px solid var(--border)" placeholder="Add default notes..."></textarea>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-3">
+                        <label class="text-xs text-gray-500 uppercase font-bold ml-1">Subtasks</label>
+                        <button onclick="addSubtaskInput()" class="text-xs text-gray-400 hover:text-white transition"><i class="fas fa-plus mr-1"></i> Add</button>
+                    </div>
+                    <div id="subtasksContainer" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-4 mt-8">
+                <button onclick="closeModal('createTemplateModal')" class="text-gray-500 font-bold hover:text-white transition">Cancel</button>
+                <button onclick="saveTemplate()" id="saveTemplateBtn" class="px-10 py-3 rounded-full font-bold text-base" style="background:var(--accent);color:#000">Save Template</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="deleteTemplateModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('deleteTemplateModal',event)">
+        <div class="noir-card p-8 rounded-3xl w-full max-w-sm shadow-2xl animate-fade-in-down" style="border-color: rgba(239,68,68,0.3)">
+            <div class="text-center mb-6">
+                <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-4"></i>
+                <h3 class="text-xl font-bold text-white">Delete Template?</h3>
+                <p class="text-gray-500 text-sm mt-2">This template will be permanently removed.</p>
+            </div>
+            <input type="hidden" id="deleteTemplateTargetId">
+            <div class="flex justify-center space-x-4">
+                <button onclick="closeModal('deleteTemplateModal')" class="text-gray-400 font-bold hover:text-white px-6 py-2 rounded-xl border border-white/10 transition">Cancel</button>
+                <button onclick="confirmDeleteTemplate()" class="bg-red-500/10 text-red-500 border border-red-500/30 px-6 py-2 rounded-xl font-bold text-base hover:bg-red-500/20 transition">Delete</button>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        window.openCreateTemplateModal = function() {
+            document.getElementById('templateName').value = '';
+            document.getElementById('templateCategory').value = '';
+            document.getElementById('templatePriority').value = 'Normal';
+            document.getElementById('templateTags').value = '';
+            document.getElementById('templateNotes').value = '';
+            document.getElementById('subtasksContainer').innerHTML = '';
+            window.addSubtaskInput();
+            openModal('createTemplateModal');
+        };
+
+        window.addSubtaskInput = function() {
+            const container = document.getElementById('subtasksContainer');
+            const row = document.createElement('div');
+            row.className = 'flex items-center space-x-2 animate-fade-in-down';
+            row.innerHTML = `
+                <input type="text" class="template-subtask flex-1 bg-white/5 border border-white/10 p-3 rounded-xl text-sm focus:outline-none focus:border-white/30" placeholder="Subtask...">
+                <button onclick="this.parentElement.remove()" class="text-gray-600 hover:text-red-500 transition px-2"><i class="fas fa-times"></i></button>
+            `;
+            container.appendChild(row);
+            row.querySelector('input').focus();
+        };
+
+        window.saveTemplate = async function() {
+            const btn = document.getElementById('saveTemplateBtn');
+            const name = document.getElementById('templateName').value.trim();
+            if (!name) { showToast('Template name is required', 'error'); return; }
+
+            const subtasks = [];
+            document.querySelectorAll('.template-subtask').forEach(input => {
+                const val = input.value.trim();
+                if (val) subtasks.push(val);
+            });
+
+            btn.disabled = true;
+            btn.innerText = 'Saving...';
+
+            const data = {
+                name,
+                category: document.getElementById('templateCategory').value || 'General',
+                priority: document.getElementById('templatePriority').value,
+                tags: document.getElementById('templateTags').value,
+                notes: document.getElementById('templateNotes').value,
+                subtasks
+            };
+
+            try {
+                const response = await fetch('/add_template', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    closeModal('createTemplateModal');
+                    showToast('Template Created!');
+                    const snippetResp = await fetch(`/get_template_card/${result.id}`);
+                    const html = await snippetResp.text();
+                    const temp = document.createElement('div');
+                    temp.innerHTML = html;
+                    const newCard = temp.children[0];
+                    let grid = document.querySelector('.grid.grid-cols-1.sm\:grid-cols-2');
+                    if (!grid) {
+                        // Remove empty state if present
+                        const emptyState = document.querySelector('.col-span-2.text-center');
+                        if (emptyState) emptyState.closest('.grid') ? emptyState.closest('.grid').remove() : emptyState.remove();
+                        // Create the grid
+                        grid = document.createElement('div');
+                        grid.className = 'grid grid-cols-1 sm:grid-cols-2 gap-6';
+                        const mainContent = document.querySelector('main > div') || document.querySelector('#mainContent');
+                        // Insert after the header
+                        const header = document.querySelector('main header');
+                        if (header) header.insertAdjacentElement('afterend', grid);
+                        else document.querySelector('main').appendChild(grid);
+                    }
+                    const emptyState = grid.querySelector('.col-span-2.text-center');
+                    if (emptyState) emptyState.remove();
+                    grid.prepend(newCard);
+                }
+            } catch(e) {
+                showToast('Error saving template', 'error');
+            }
+            btn.disabled = false;
+            btn.innerText = 'Save Template';
+        };
+
+        window.useTemplate = async function(id) {
+            await fetch('/add_project_from_template', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({template_id: id})
+            });
+            showToast('Task Created from Template');
+            setTimeout(() => window.location.href = '/', 500);
+        };
+
+        window.deleteTemplate = function(id) {
+            document.getElementById('deleteTemplateTargetId').value = id;
+            openModal('deleteTemplateModal');
+        };
+
+        window.confirmDeleteTemplate = async function() {
+            const id = document.getElementById('deleteTemplateTargetId').value;
+            closeModal('deleteTemplateModal');
+            await fetch(`/delete_template/${id}`, {method: 'POST'});
+            showToast('Template Deleted', 'info');
+            const card = document.querySelector(`.template-card[data-id="${id}"]`);
+            if (card) {
+                card.classList.add('fade-out');
+                setTimeout(() => {
+                    card.remove();
+                    if (document.querySelectorAll('.template-card').length === 0) {
+                        const grid = document.querySelector('.grid.grid-cols-1.sm\:grid-cols-2');
+                        if (grid) {
+                            grid.innerHTML = `
+                                <div class="col-span-2 text-center py-20">
+                                    <i class="fas fa-layer-group text-6xl text-gray-800 mb-6"></i>
+                                    <h3 class="text-xl text-gray-600 font-bold mb-2">No Templates Yet</h3>
+                                    <p class="text-gray-700 text-sm">Create your first template to speed up your workflow</p>
+                                </div>
+                            `;
+                        }
+                    }
+                }, 400);
+            }
+        };
+    </script>
+{% endblock %}

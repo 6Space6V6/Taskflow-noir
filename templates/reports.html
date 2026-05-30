@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Reports | TaskFlow Noir{% endblock %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block style %}
+    .tab-btn { padding: 10px 24px; border-radius: 12px 12px 0 0; border: 1px solid transparent; border-bottom: none; cursor: pointer; transition: all 0.3s ease; white-space: nowrap; }
+    .tab-btn.active { background: var(--surface); border-color: var(--border); color: #fff; }
+    .tab-btn:not(.active) { color: #666; }
+    .tab-btn:not(.active):hover { color: #999; }
+    .stat-value { font-family: 'Courier New', monospace; }
+    .tab-container { overflow-x: auto; -webkit-overflow-scrolling: touch; display: flex; width: 100%; }
+    .tab-container::-webkit-scrollbar { display: none; }
+    @media (max-width: 640px) {
+        .stat-value { font-size: 2.5rem !important; }
+        .noir-card { padding: 1rem !important; }
+    }
+    @media print { .sidebar, .tab-btn, button, nav { display: none !important; } main { padding: 0 !important; } }
+{% endblock %}
+
+{% block sidebar_footer_extra %}
+    <button onclick="window.print()" class="w-full glass-panel px-4 py-2 rounded-xl text-sm text-gray-400 hover:text-white transition mt-2"><i class="fas fa-print mr-2"></i> Print / Save PDF</button>
+{% endblock %}
+
+{% block content %}
+    <header class="mb-8">
+        <h2 class="text-4xl font-bold text-white tracking-tighter">Reports</h2>
+        <p class="text-gray-600 text-base">{{today.strftime('%d %B %Y')}}</p>
+    </header>
+
+    <div class="tab-container border-b mb-8" style="border-color: var(--glass-border)">
+        <a href="?view=daily" class="tab-btn text-sm font-bold uppercase {{'active' if view=='daily' else ''}}">Daily</a>
+        <a href="?view=weekly" class="tab-btn text-sm font-bold uppercase {{'active' if view=='weekly' else ''}}">Weekly</a>
+        <a href="?view=monthly" class="tab-btn text-sm font-bold uppercase {{'active' if view=='monthly' else ''}}">Monthly</a>
+        <a href="?view=yearly" class="tab-btn text-sm font-bold uppercase {{'active' if view=='yearly' else ''}}">Yearly</a>
+    </div>
+
+    {% if view == 'daily' %}
+    <div class="space-y-8 animate-fade-in-up">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="noir-card p-6 rounded-2xl border-l-2 border-white"><p class="text-sm text-gray-500 uppercase font-bold mb-1">Created Today</p><h3 class="text-5xl font-black stat-value text-white">{{daily_created}}</h3></div>
+            <div class="noir-card p-6 rounded-2xl border-l-2 border-green-500"><p class="text-sm text-gray-500 uppercase font-bold mb-1">Completed Today</p><h3 class="text-5xl font-black text-green-500 stat-value">{{daily_completed}}</h3></div>
+            <div class="noir-card p-6 rounded-2xl border-l-2 border-blue-500"><p class="text-sm text-gray-500 uppercase font-bold mb-1">Active Tasks</p><h3 class="text-5xl font-black text-blue-500 stat-value">{{daily_active}}</h3></div>
+            <div class="noir-card p-6 rounded-2xl border-l-2 border-red-500"><p class="text-sm text-gray-500 uppercase font-bold mb-1">Overdue</p><h3 class="text-5xl font-black text-red-500 stat-value">{{daily_overdue}}</h3></div>
+        </div>
+        <div class="noir-card p-8 rounded-3xl text-center">
+            <i class="fas fa-calendar-day text-5xl text-gray-700 mb-4"></i>
+            <h3 class="text-xl text-white font-bold">{{today.strftime('%A, %d %B %Y')}}</h3>
+            <p class="text-gray-500 mt-2">{{daily_completed}} tasks completed today</p>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if view == 'weekly' %}
+    <div class="space-y-8 animate-fade-in-up">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="noir-card p-6 rounded-2xl border-l-2 border-white"><p class="text-sm text-gray-500 uppercase font-bold mb-1">Created</p><h3 class="text-5xl font-black stat-value text-white">{{total_week_created}}</h3></div>
+            <div class="noir-card p-6 rounded-2xl border-l-2 border-green-500"><p class="text-sm text-gray-500 uppercase font-bold mb-1">Completed</p><h3 class="text-5xl font-black text-green-500 stat-value">{{total_week_completed}}</h3></div>
+            <div class="noir-card p-6 rounded-2xl border-l-2 border-blue-500"><p class="text-sm text-gray-500 uppercase font-bold mb-1">Rate</p><h3 class="text-5xl font-black text-blue-500 stat-value">{% if total_week_created > 0 %}{{(total_week_completed/total_week_created*100)|int}}{% else %}0{% endif %}%</h3></div>
+            <div class="noir-card p-6 rounded-2xl border-l-2 border-yellow-500"><p class="text-sm text-gray-500 uppercase font-bold mb-1">Best Day</p><h3 class="text-lg font-black text-yellow-500 stat-value">{{best_day.day if best_day else 'N/A'}}</h3></div>
+        </div>
+        <div class="noir-card p-8 rounded-3xl">
+            <h4 class="text-sm uppercase text-gray-500 font-bold mb-6">Daily Breakdown</h4>
+            <canvas id="weeklyChart" height="80"></canvas>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if view == 'monthly' %}
+    <div class="space-y-8 animate-fade-in-up">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="noir-card p-6 rounded-2xl border-l-2 border-white"><p class="text-sm text-gray-500 uppercase font-bold mb-1">Created</p><h3 class="text-5xl font-black stat-value text-white">{{total_month_created}}</h3></div>
+            <div class="noir-card p-6 rounded-2xl border-l-2 border-green-500"><p class="text-sm text-gray-500 uppercase font-bold mb-1">Completed</p><h3 class="text-5xl font-black text-green-500 stat-value">{{total_month_completed}}</h3></div>
+            <div class="noir-card p-6 rounded-2xl border-l-2 border-purple-500"><p class="text-sm text-gray-500 uppercase font-bold mb-1">{{month_start.strftime('%B %Y')}}</p><h3 class="text-lg font-black text-purple-500 stat-value">{{month_weeks|length}} weeks</h3></div>
+        </div>
+        <div class="noir-card p-8 rounded-3xl">
+            <h4 class="text-sm uppercase text-gray-500 font-bold mb-6">Weekly Breakdown</h4>
+            <canvas id="monthlyChart" height="80"></canvas>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if view == 'yearly' %}
+    <div class="space-y-8 animate-fade-in-up">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="noir-card p-6 rounded-2xl border-l-2 border-white"><p class="text-sm text-gray-500 uppercase font-bold mb-1">Created</p><h3 class="text-5xl font-black stat-value text-white">{{total_year_created}}</h3></div>
+            <div class="noir-card p-6 rounded-2xl border-l-2 border-green-500"><p class="text-sm text-gray-500 uppercase font-bold mb-1">Completed</p><h3 class="text-5xl font-black text-green-500 stat-value">{{total_year_completed}}</h3></div>
+            <div class="noir-card p-6 rounded-2xl border-l-2 border-yellow-500"><p class="text-sm text-gray-500 uppercase font-bold mb-1">{{today.year}}</p><h3 class="text-lg font-black text-yellow-500 stat-value">Avg {{(total_year_completed/12)|int}}/mo</h3></div>
+        </div>
+        <div class="noir-card p-8 rounded-3xl">
+            <h4 class="text-sm uppercase text-gray-500 font-bold mb-6">Monthly Breakdown</h4>
+            <canvas id="yearlyChart" height="80"></canvas>
+        </div>
+    </div>
+    {% endif %}
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        let reportChart;
+        const getAccent = () => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ffffff';
+        
+        {% if view == 'weekly' %}
+        reportChart = new Chart(document.getElementById('weeklyChart'), {
+            type: 'bar',
+            data: {
+                labels: [{% for day in daily_stats %}'{{day.day[:3]}}'{% if not loop.last %}, {% endif %}{% endfor %}],
+                datasets: [
+                    {
+                        label: 'Created',
+                        data: [{% for day in daily_stats %}{{day.created}}{% if not loop.last %}, {% endif %}{% endfor %}],
+                        backgroundColor: 'rgba(255,255,255,0.1)',
+                        borderColor: 'rgba(255,255,255,0.2)',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Completed',
+                        data: [{% for day in daily_stats %}{{day.completed}}{% if not loop.last %}, {% endif %}{% endfor %}],
+                        backgroundColor: getAccent() + '44',
+                        borderColor: getAccent(),
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { labels: { color: '#888', usePointStyle: true } } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#1a1a1a' }, ticks: { color: '#666', stepSize: 1 } },
+                    x: { grid: { display: false }, ticks: { color: '#666' } }
+                }
+            }
+        });
+        {% endif %}
+
+        {% if view == 'monthly' %}
+        reportChart = new Chart(document.getElementById('monthlyChart'), {
+            type: 'bar',
+            data: {
+                labels: [{% for week in month_weeks %}'{{week.label}}'{% if not loop.last %}, {% endif %}{% endfor %}],
+                datasets: [{
+                    label: 'Completed',
+                    data: [{% for week in month_weeks %}{{week.completed}}{% if not loop.last %}, {% endif %}{% endfor %}],
+                    backgroundColor: getAccent() + '44',
+                    borderColor: getAccent(),
+                    borderWidth: 1,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { labels: { color: '#888' } } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#1a1a1a' }, ticks: { color: '#666', stepSize: 1 } },
+                    x: { grid: { display: false }, ticks: { color: '#666' } }
+                }
+            }
+        });
+        {% endif %}
+
+        {% if view == 'yearly' %}
+        reportChart = new Chart(document.getElementById('yearlyChart'), {
+            type: 'bar',
+            data: {
+                labels: [{% for m in yearly_months %}'{{m.label}}'{% if not loop.last %}, {% endif %}{% endfor %}],
+                datasets: [{
+                    label: 'Completed',
+                    data: [{% for m in yearly_months %}{{m.completed}}{% if not loop.last %}, {% endif %}{% endfor %}],
+                    backgroundColor: getAccent() + '44',
+                    borderColor: getAccent(),
+                    borderWidth: 1,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { labels: { color: '#888' } } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#1a1a1a' }, ticks: { color: '#666', stepSize: 1 } },
+                    x: { grid: { display: false }, ticks: { color: '#666' } }
+                }
+            }
+        });
+        {% endif %}
+
+    </script>
+{% endblock %}

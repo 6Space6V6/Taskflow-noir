@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+
+{% block title %}Archive | TaskFlow Noir{% endblock %}
+
+{% block style %}
+    .folder-header { background: linear-gradient(90deg, var(--surface) 0%, var(--bg) 100%); border-left: 4px solid #333; cursor: pointer; transition: all 0.3s ease; }
+    .folder-header:hover { border-left-color: var(--accent); background: linear-gradient(90deg, #1a1a1a 0%, var(--bg) 100%); }
+    .archive-item:hover { background-color: rgba(255,255,255,0.02); }
+    .vault-badge { background: rgba(255,255,255,0.05); border: 1px solid var(--border); }
+    .fade-out { opacity: 0; transform: translateX(20px); transition: all 0.4s ease; pointer-events: none; }
+    .folder-content {
+        overflow: hidden;
+        max-height: 0;
+        opacity: 0;
+        transition: max-height 0.35s ease-out, opacity 0.3s ease-out;
+    }
+    .folder-content.expanded {
+        max-height: 4000px;
+        opacity: 1;
+    }
+{% endblock %}
+
+{% block content %}
+    <header class="flex justify-between items-end mb-10">
+        <div>
+            <h2 class="text-4xl font-bold text-white tracking-tighter">Archive</h2>
+            <p class="text-gray-600 text-base uppercase tracking-widest">Completed Tasks by Date</p>
+        </div>
+        <div class="vault-badge px-5 py-3 rounded-lg text-center">
+            <span class="block text-sm text-gray-500 uppercase">Total Completed</span>
+            <span class="text-lg font-mono font-bold">{{ total_archived }}</span>
+        </div>
+    </header>
+
+    <div class="mb-8">
+        <input type="text" id="archiveSearch" oninput="searchArchive()" placeholder="Search archive..." class="w-full glass-panel rounded-xl px-5 py-3 text-base focus:outline-none focus:border-white/30 transition">
+    </div>
+
+    {% if folders|length == 0 %}
+        <div class="text-center py-20"><i class="fas fa-archive text-6xl text-gray-800 mb-6"></i><h3 class="text-xl text-gray-600 font-bold mb-2">Archive is Empty</h3><p class="text-gray-700 text-sm">Completed tasks will appear here grouped by date</p></div>
+    {% else %}
+        <div class="space-y-6">
+            {% for folder in folders %}
+            <div class="category-section animate-fade-in-up" style="animation-delay: {{ loop.index0 * 0.1 }}s">
+                <div onclick="toggleFolder(this)" class="folder-header p-5 rounded-xl flex justify-between items-center group">
+                    <div class="flex items-center space-x-4">
+                        <i class="fas fa-calendar-check text-gray-600 group-hover:text-white text-xl"></i>
+                        <div>
+                            <span class="font-bold tracking-tight text-lg uppercase block text-gray-200">{{folder.name}}</span>
+                            <span class="text-xs text-gray-600">{{folder.date_sub}}</span>
+                        </div>
+                        <span class="text-sm glass-panel px-3 py-1 rounded text-gray-500 folder-count">{{folder.count}} Tasks</span>
+                    </div>
+                    <i class="fas fa-chevron-right text-sm text-gray-700 group-hover:text-white transition chevron-icon folder-chevron"></i>
+                </div>
+                <div class="folder-content mt-4 space-y-2 px-2">
+                    <div class="noir-card rounded-xl overflow-hidden shadow-lg">
+                        <div class="table-responsive">
+                            <table class="w-full text-left">
+                                <tbody class="divide-y divide-white/5">
+                                    {% for project in folder.projects %}
+                                    <tr class="archive-item transition group cursor-pointer" onclick="toggleSubtasks({{project.id}})">
+                                        <td class="p-4">
+                                            <div class="flex items-center space-x-4">
+                                                <i id="icon-{{project.id}}" class="fas fa-chevron-right text-sm text-gray-700 transition-transform"></i>
+                                                <div>
+                                                    <span class="text-gray-300 font-medium text-lg block">{{project.title}}</span>
+                                                    <span class="text-xs text-gray-600">{{project.category}} • {{project.priority}}</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="p-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                                            <button onclick="restoreProject({{project.id}})" class="text-sm uppercase font-bold text-gray-600 hover:text-white transition"><i class="fas fa-undo-alt mr-2"></i> Restore</button>
+                                            <button onclick="openDeleteConfirm({{project.id}})" class="text-sm uppercase font-bold text-gray-600 hover:text-red-500 transition ml-4"><i class="fas fa-trash-alt mr-2"></i> Delete</button>
+                                        </td>
+                                    </tr>
+{% macro render_archive_subtask(sub, depth) %}
+<div class="subtask-row flex items-center space-x-3 py-2 group {% if sub.is_side_project %}side-project-row bg-white/[0.01] p-3 rounded-xl border border-white/5 mt-1{% endif %}" data-subtask-id="{{sub.id}}">
+    {% if sub.is_side_project %}
+        <!-- Expand/collapse chevron -->
+        <button onclick="event.stopPropagation(); toggleSubtaskCollapse({{sub.id}})" class="text-gray-600 hover:text-white transition text-xs w-4 flex items-center justify-center">
+            <i id="sub-chevron-{{sub.id}}" class="fas fa-chevron-right chevron-icon"></i>
+        </button>
+        <span class="text-gray-500 mr-1 text-sm">📁</span>
+        <div class="flex-1 flex items-center space-x-2">
+            <span class="text-base font-bold text-gray-400">{{sub.title}}</span>
+        </div>
+    {% else %}
+        <span class="w-4"></span>
+        <i class="fas fa-check text-green-900/50 mr-2 text-xs"></i>
+        <div class="flex-1 flex items-center space-x-2">
+            <span class="text-base flex-1 line-through text-gray-500">{{sub.title}}</span>
+        </div>
+    {% endif %}
+</div>
+
+{% if sub.is_side_project %}
+<div id="sub-children-{{sub.id}}" class="border-l border-white/5 pl-4 ml-8 space-y-2 mt-2 subtasks-container animatable expanded">
+    {% for child in sub.children|sort(attribute='order_index') %}
+    {{ render_archive_subtask(child, depth + 1) }}
+    {% endfor %}
+</div>
+{% endif %}
+{% endmacro %}
+
+                                    <tr id="subtasks-{{project.id}}" class="hidden bg-white/[0.01]">
+                                        <td colspan="2" class="p-4 pl-16">
+                                            {% set root_subs = [] %}
+                                            {% for s in project.subtasks %}
+                                                {% if s.parent_id is none %}
+                                                    {% if root_subs.append(s) %}{% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                            
+                                            {% if root_subs %}
+                                                <div class="space-y-3">
+                                                    {% for sub in root_subs|sort(attribute='order_index') %}
+                                                    {{ render_archive_subtask(sub, 0) }}
+                                                    {% endfor %}
+                                                </div>
+                                            {% else %}
+                                                <p class="text-xs text-gray-600 py-1">No subtasks.</p>
+                                            {% endif %}
+                                            
+                                            {% if project.completed_at %}
+                                                <div class="text-xs text-gray-700 mt-4">Completed: {{project.completed_at.strftime('%d %B %Y at %H:%M')}}</div>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <div id="deleteConfirmModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('deleteConfirmModal',event)">
+        <div class="noir-card p-8 rounded-3xl w-full max-w-sm shadow-2xl animate-fade-in-down" style="border-color: rgba(239,68,68,0.3)">
+            <div class="text-center mb-6">
+                <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-4"></i>
+                <h3 class="text-xl font-bold text-white">Delete Task?</h3>
+                <p class="text-gray-500 text-sm mt-2">This will permanently delete the task from the archive.</p>
+            </div>
+            <input type="hidden" id="deleteTargetId">
+            <div class="flex justify-center space-x-4">
+                <button onclick="closeModal('deleteConfirmModal')" class="text-gray-400 text-base font-bold hover:text-white transition px-6 py-2 rounded-xl border border-white/10">Cancel</button>
+                <button onclick="confirmDeleteProject()" class="bg-red-500/10 text-red-500 border border-red-500/30 px-6 py-2 rounded-xl font-bold text-base hover:bg-red-500/20 transition">Delete</button>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        window.searchArchive = function() {
+            const val = document.getElementById('archiveSearch').value.toLowerCase();
+            document.querySelectorAll('.category-section').forEach(section => {
+                let found = false;
+                section.querySelectorAll('.archive-item').forEach(item => {
+                    if (item.innerText.toLowerCase().includes(val)) {
+                        item.style.display = '';
+                        found = true;
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+                section.style.display = found ? '' : 'none';
+            });
+        };
+
+        window.toggleFolder = function(header) {
+            const content = header.nextElementSibling;
+            const chevron = header.querySelector('.folder-chevron');
+            const isExpanded = content.classList.contains('expanded');
+            if (isExpanded) {
+                content.classList.remove('expanded');
+                if (chevron) chevron.classList.remove('rotated');
+            } else {
+                content.classList.remove('hidden');
+                content.offsetHeight; // force reflow
+                content.classList.add('expanded');
+                if (chevron) chevron.classList.add('rotated');
+            }
+        };
+
+        window.toggleSubtasks = function(id) {
+            const subRow = document.getElementById(`subtasks-${id}`);
+            const icon = document.getElementById(`icon-${id}`);
+            if (subRow) subRow.classList.toggle('hidden');
+            if (icon) icon.classList.toggle('rotate-90');
+        };
+
+        window.toggleSubtaskCollapse = function(id) {
+            const container = document.getElementById(`sub-children-${id}`);
+            const chevron = document.getElementById(`sub-chevron-${id}`);
+            if (container) {
+                const isExpanded = container.classList.contains('expanded');
+                if (isExpanded) {
+                    container.classList.remove('expanded');
+                    if (chevron) chevron.classList.remove('rotated');
+                } else {
+                    container.offsetHeight;
+                    container.classList.add('expanded');
+                    if (chevron) chevron.classList.add('rotated');
+                }
+            }
+        };
+
+        window.removeTaskFromUI = function(id) {
+            const row = document.querySelector(`tr.archive-item[onclick*="toggleSubtasks(${id})"]`);
+            const subRow = document.getElementById(`subtasks-${id}`);
+            if (!row) return;
+
+            const section = row.closest('.category-section');
+            const countEl = section.querySelector('.folder-count');
+
+            row.classList.add('fade-out');
+            if (subRow) subRow.classList.add('fade-out');
+
+            setTimeout(() => {
+                row.remove();
+                if (subRow) subRow.remove();
+
+                // Update count or remove section
+                const remaining = section.querySelectorAll('.archive-item').length;
+                if (remaining === 0) {
+                    section.classList.add('fade-out');
+                    setTimeout(() => {
+                        section.remove();
+                        // If no more sections, show empty state instead of reloading
+                        if (document.querySelectorAll('.category-section').length === 0) {
+                            const container = document.querySelector('.space-y-6');
+                            if (container) {
+                                container.outerHTML = `<div class="text-center py-20"><i class="fas fa-archive text-6xl text-gray-800 mb-6"></i><h3 class="text-xl text-gray-600 font-bold mb-2">Archive is Empty</h3><p class="text-gray-700 text-sm">Completed tasks will appear here grouped by date</p></div>`;
+                            }
+                        }
+                    }, 400);
+                } else {
+                    countEl.textContent = `${remaining} Tasks`;
+                }
+
+                // Update total count in badge
+                const badge = document.querySelector('.vault-badge .font-mono');
+                if (badge) {
+                    badge.textContent = parseInt(badge.textContent) - 1;
+                }
+            }, 400);
+        };
+
+        window.restoreProject = async function(id) {
+            const response = await fetch(`/restore_project/${id}`, {method: 'POST'});
+            if (response.ok) {
+                showToast('Task Restored');
+                window.removeTaskFromUI(id);
+            }
+        };
+
+        window.openDeleteConfirm = function(id) {
+            document.getElementById('deleteTargetId').value = id;
+            window.openModal('deleteConfirmModal');
+        };
+
+        window.confirmDeleteProject = async function() {
+            const id = document.getElementById('deleteTargetId').value;
+            window.closeModal('deleteConfirmModal');
+            const response = await fetch(`/delete_project/${id}`, {method: 'POST'});
+            if (response.ok) {
+                showToast('Task Deleted', 'error');
+                window.removeTaskFromUI(id);
+            }
+        };
+    </script>
+{% endblock %}

@@ -1,0 +1,594 @@
+{% extends "base.html" %}
+
+{% block title %}Habit Tracker | TaskFlow Noir{% endblock %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+{% endblock %}
+
+{% block style %}
+    .habit-card { position: relative; overflow: visible; border-left-width: 4px; border-left-style: solid; background: var(--glass); backdrop-filter: blur(10px); }
+    .habit-checkbox { width: 64px; height: 64px; border-radius: 16px; border: 2px solid var(--glass-border); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); background: rgba(0,0,0,0.3); }
+    .habit-checkbox i { font-size: 24px; opacity: 0; transform: scale(0.5); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); color: #000; }
+    .habit-checkbox.checked { border-color: transparent; }
+    .habit-checkbox.checked i { opacity: 1; transform: scale(1); animation: bounceIn 0.5s; }
+    .color-option { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.2s; }
+    .color-option:hover { transform: scale(1.1); }
+    .color-option.selected { border-color: #fff; transform: scale(1.1); }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .calendar-day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 4px; border-radius: 8px; background: var(--glass); border: 1px solid var(--glass-border); cursor: pointer; }
+    .calendar-day:hover { background: var(--glass-border); }
+    .calendar-day.today { border-color: var(--accent); }
+    .day-number { font-size: 10px; color: #4b5563; margin-bottom: 2px; }
+    .dots-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; width: 100%; }
+    .habit-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .drag-handle { opacity: 0; transition: opacity 0.2s; cursor: move; }
+    .habit-card:hover .drag-handle { opacity: 1; }
+    .sortable-ghost { opacity: 0.3; background: rgba(255,255,255,0.05); }
+    .tooltip { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #000; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 10px; visibility: hidden; opacity: 0; transition: 0.2s; z-index: 50; white-space: nowrap; border: 1px solid #333; }
+    .has-tooltip:hover .tooltip { visibility: visible; opacity: 1; bottom: 110%; }
+    .fade-out { opacity: 0; transform: scale(0.9) translateY(20px); transition: all 0.4s ease; pointer-events: none; }
+    @keyframes bounceIn { 0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+{% endblock %}
+
+{% block content %}
+    <header class="flex justify-between items-center mb-10">
+        <div>
+            <h2 class="text-4xl font-bold text-white tracking-tighter">Habit Tracker</h2>
+            <p class="text-gray-600 text-base">Build consistency. Stay disciplined.</p>
+        </div>
+        <div class="flex items-center space-x-6">
+            <div class="text-right">
+                <p class="text-xs text-gray-500 uppercase font-bold">Today's Progress</p>
+                <p class="text-xl font-bold text-white">{{today_done}}/{{active_habits}}</p>
+            </div>
+            <button onclick="openAddHabitModal()" class="px-8 py-3 rounded-full font-bold text-base transition hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(255,255,255,0.1)]" style="background:var(--accent);color:#000">+ New Habit</button>
+        </div>
+    </header>
+
+    <div class="grid grid-cols-12 gap-8">
+        <!-- Habits List -->
+        <div class="col-span-12 lg:col-span-8 space-y-8">
+            {% for group in groups %}
+            <div class="group-section">
+                <h3 class="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center">
+                    <i class="fas fa-layer-group mr-2 opacity-50"></i> {{group}}
+                </h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="habitsContainer-{{loop.index}}">
+                    {% for habit in habits %}
+                        {% if habit.group_name == group %}
+                        {% include 'partials/habit_card.html' %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Sidebar Info -->
+        <div class="col-span-12 lg:col-span-4 space-y-6">
+            <!-- Mini Calendar -->
+            <div class="noir-card p-6 rounded-3xl">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-bold text-white flex items-center">
+                        Activity
+                    </h3>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="changeMonth(-1)" class="text-gray-500 hover:text-white p-1"><i class="fas fa-chevron-left text-xs"></i></button>
+                        <button onclick="goToToday()" class="text-[10px] text-gray-400 hover:text-white uppercase tracking-widest px-2 py-1 rounded glass-panel transition">Today</button>
+                        <button onclick="changeMonth(1)" class="text-gray-500 hover:text-white p-1"><i class="fas fa-chevron-right text-xs"></i></button>
+                    </div>
+                </div>
+                <div id="currentMonthYear" class="text-sm font-bold text-gray-300 text-center mb-4 uppercase tracking-tighter">Month Year</div>
+                
+                <div class="grid grid-cols-7 gap-1 text-center mb-2">
+                    {% for day in ['M','T','W','T','F','S','S'] %}<span class="text-[10px] text-gray-700 font-bold">{{day}}</span>{% endfor %}
+                </div>
+                <div id="calendarGrid" class="calendar-grid"></div>
+                
+                <div class="mt-6 pt-6 border-t border-white/5">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs text-gray-500">Day Summary</span>
+                        <span id="selectedDayText" class="text-xs text-white font-bold">Today</span>
+                    </div>
+                    <div id="dayHabitsList" class="space-y-2">
+                        <p class="text-xs text-gray-700 italic">Select a day to see completed habits</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Weekly Stats -->
+            <div class="noir-card p-6 rounded-3xl">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-bold text-white">Performance</h3>
+                    <div class="flex space-x-2">
+                        <button onclick="toggleWeekReport(-1)" class="text-gray-600 hover:text-white"><i class="fas fa-chevron-left text-xs"></i></button>
+                        <button onclick="toggleWeekReport(1)" class="text-gray-600 hover:text-white"><i class="fas fa-chevron-right text-xs"></i></button>
+                    </div>
+                </div>
+                <div class="h-40 relative cursor-pointer" onclick="openHabitChartModal()" title="Click to view detailed chart">
+                    <canvas id="weeklyHabitChart"></canvas>
+                </div>
+                <div id="weekRangeLabel" class="text-[10px] text-gray-600 text-center mt-2 uppercase tracking-widest">May 10 - May 17</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="habitModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('habitModal',event)">
+        <div class="noir-card p-8 rounded-3xl w-full max-w-md shadow-2xl animate-fade-in-down">
+            <h3 id="habitModalTitle" class="text-2xl font-bold mb-6 text-white">New Habit</h3>
+            <div class="space-y-5">
+                <input type="hidden" id="editHabitId">
+                <div><label class="text-sm text-gray-500 uppercase font-bold ml-1">Habit Name *</label><input type="text" id="habitName" class="w-full glass-panel p-4 rounded-xl text-base" placeholder="e.g. Morning Workout"></div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-sm text-gray-500 uppercase font-bold ml-1">Icon</label>
+                        <div class="flex items-center space-x-3 mt-1">
+                            <div id="selectedIconDisplay" class="w-12 h-12 rounded-xl glass-panel flex items-center justify-center text-xl text-white">
+                                <i class="fas fa-dumbbell"></i>
+                            </div>
+                            <input type="text" id="habitIcon" value="fas fa-dumbbell" class="glass-panel p-3 rounded-xl text-sm flex-1" placeholder="FontAwesome class">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-sm text-gray-500 uppercase font-bold ml-1">Group</label>
+                        <input type="text" id="habitGroup" class="w-full glass-panel p-4 rounded-xl text-base mt-1" placeholder="e.g. Health">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-sm text-gray-500 uppercase font-bold ml-1">Theme Color</label>
+                    <div class="flex space-x-3 mt-2" id="colorPicker">
+                        {% for color in ['#ffffff', '#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'] %}
+                        <div class="color-option {{'selected' if loop.first else ''}}" data-color="{{color}}" style="background-color: {{color}}"></div>
+                        {% endfor %}
+                        <input type="hidden" id="habitColor" value="#ffffff">
+                    </div>
+                </div>
+
+                <div><label class="text-sm text-gray-500 uppercase font-bold ml-1">Notes</label><textarea id="habitNotes" rows="3" class="w-full bg-white/5 p-4 rounded-xl text-base resize-none" style="border:1px solid var(--border)" placeholder="Motivation or instructions..."></textarea></div>
+            </div>
+            
+            <div class="flex justify-end space-x-4 mt-8">
+                <button onclick="closeModal('habitModal')" class="text-gray-500 font-bold hover:text-white transition">Cancel</button>
+                <button onclick="saveHabit()" id="habitSubmitBtn" class="px-10 py-3 rounded-full font-bold text-base" style="background:var(--accent);color:#000">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteHabitModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('deleteHabitModal',event)">
+        <div class="noir-card p-8 rounded-3xl w-full max-w-sm shadow-2xl animate-fade-in-down" style="border-color: rgba(239,68,68,0.3)">
+            <div class="text-center mb-6">
+                <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-4"></i>
+                <h3 class="text-xl font-bold text-white">Delete Habit?</h3>
+                <p class="text-gray-500 text-sm mt-2">This will permanently delete <span id="deleteHabitName" class="text-white font-bold"></span> and all its history.</p>
+            </div>
+            <input type="hidden" id="deleteHabitId">
+            <div class="flex justify-center space-x-4">
+                <button onclick="closeModal('deleteHabitModal')" class="text-gray-400 text-base font-bold hover:text-white transition px-6 py-2 rounded-xl border border-white/10">Cancel</button>
+                <button onclick="confirmDeleteHabit()" class="bg-red-500/10 text-red-500 border border-red-500/30 px-6 py-2 rounded-xl font-bold text-base hover:bg-red-500/20 transition">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Habit Chart Modal -->
+    <div id="habitChartModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('habitChartModal',event)">
+        <div class="noir-card p-8 rounded-3xl w-full max-w-2xl shadow-2xl animate-fade-in-down" style="border-color: var(--border)">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold text-white tracking-tighter">Habit Performance Details</h3>
+                <button onclick="closeModal('habitChartModal')" class="text-gray-500 hover:text-white text-xl transition">&times;</button>
+            </div>
+            <div class="h-80 relative w-full mb-6">
+                <canvas id="modalHabitChart"></canvas>
+            </div>
+            <div class="flex justify-end">
+                <button onclick="closeModal('habitChartModal')" class="px-6 py-2 rounded-xl font-bold text-sm bg-white/5 text-gray-400 hover:text-white transition border border-white/10">Close</button>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        let currentYear = new Date().getFullYear();
+        let currentMonth = new Date().getMonth();
+        let weeklyChartInstance = null;
+        let weekOffset = 0;
+
+        // Color Picker Logic
+        document.addEventListener('click', function(e) {
+            const opt = e.target.closest('.color-option');
+            if (!opt) return;
+            document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+            opt.classList.add('selected');
+            document.getElementById('habitColor').value = opt.dataset.color;
+        });
+
+        // Icon live-preview
+        document.addEventListener('input', function(e) {
+            if (e.target.id === 'habitIcon') {
+                const display = document.getElementById('selectedIconDisplay');
+                if (display) display.innerHTML = `<i class="${e.target.value}"></i>`;
+            }
+        });
+
+        window.openAddHabitModal = function() {
+            document.getElementById('habitModalTitle').textContent = 'New Habit';
+            document.getElementById('editHabitId').value = '';
+            document.getElementById('habitName').value = '';
+            document.getElementById('habitIcon').value = 'fas fa-dumbbell';
+            document.getElementById('selectedIconDisplay').innerHTML = '<i class="fas fa-dumbbell"></i>';
+            document.getElementById('habitGroup').value = 'General';
+            document.getElementById('habitNotes').value = '';
+            document.getElementById('habitColor').value = '#ffffff';
+            document.querySelectorAll('.color-option').forEach((o, i) => o.classList.toggle('selected', i === 0));
+            document.getElementById('habitSubmitBtn').textContent = 'Create';
+            openModal('habitModal');
+        };
+
+        window.openEditHabitModal = function(id, name, icon, color, notes, group) {
+            document.getElementById('habitModalTitle').textContent = 'Edit Habit';
+            document.getElementById('editHabitId').value = id;
+            document.getElementById('habitName').value = name;
+            document.getElementById('habitIcon').value = icon;
+            document.getElementById('selectedIconDisplay').innerHTML = `<i class="${icon}"></i>`;
+            document.getElementById('habitColor').value = color;
+            document.getElementById('habitNotes').value = notes === 'None' ? '' : notes;
+            document.getElementById('habitGroup').value = group;
+            document.querySelectorAll('.color-option').forEach(opt => {
+                opt.classList.toggle('selected', opt.dataset.color === color);
+            });
+            document.getElementById('habitSubmitBtn').textContent = 'Update';
+            openModal('habitModal');
+        };
+
+        window.updateHabitKPIs = async function() {
+            const response = await fetch('/get_habit_stats');
+            const data = await response.json();
+            if (data.success) {
+                const counter = document.querySelector('header p.text-xl.font-bold.text-white');
+                if (counter) counter.textContent = `${data.today_done}/${data.active_habits}`;
+            }
+        };
+
+        window.fetchAndUpdateHabitCard = async function(id) {
+            const response = await fetch(`/get_habit_card/${id}`);
+            const html = await response.text();
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+            const oldCard = document.querySelector(`.habit-card[data-id="${id}"]`);
+            if (oldCard) oldCard.replaceWith(temp.children[0]);
+            window.updateHabitKPIs();
+            window.fetchCalendarData();
+            window.fetchWeeklyReport(0);
+        };
+
+        window.fetchAndAppendHabitCard = async function(id) {
+            const response = await fetch(`/get_habit_card/${id}`);
+            const html = await response.text();
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+            const newCard = temp.children[0];
+            const groupName = newCard.dataset.groupName;
+            let container = null;
+            document.querySelectorAll('.group-section').forEach(section => {
+                const h3 = section.querySelector('h3');
+                if (h3 && h3.textContent.trim().includes(groupName)) {
+                    container = section.querySelector('.grid');
+                }
+            });
+            if (container) {
+                container.appendChild(newCard);
+            } else {
+                // Dynamically create a new group section
+                const habitsListCol = document.querySelector('.col-span-12.lg\\:col-span-8');
+                if (habitsListCol) {
+                    const sectionEl = document.createElement('div');
+                    sectionEl.className = 'group-section animate-fade-in-up';
+                    sectionEl.innerHTML = `
+                        <h3 class="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center">
+                            <i class="fas fa-layer-group mr-2 opacity-50"></i> ${groupName}
+                        </h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+                    `;
+                    habitsListCol.appendChild(sectionEl);
+                    sectionEl.querySelector('.grid').appendChild(newCard);
+                }
+            }
+            window.updateHabitKPIs();
+            window.fetchCalendarData();
+            window.fetchWeeklyReport(0);
+            window.initSortable();
+        };
+
+        window.saveHabit = async function() {
+            const id = document.getElementById('editHabitId').value;
+            const data = {
+                name: document.getElementById('habitName').value.trim(),
+                icon: document.getElementById('habitIcon').value.trim(),
+                color: document.getElementById('habitColor').value,
+                notes: document.getElementById('habitNotes').value.trim(),
+                group_name: document.getElementById('habitGroup').value.trim() || 'General'
+            };
+            if (!data.name) return showToast('Name is required', 'error');
+
+            const url = id ? `/update_habit/${id}` : '/add_habit';
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            if (result.success) {
+                window.closeModal('habitModal');
+                showToast(id ? 'Habit Updated' : 'Habit Created');
+                if (id) window.fetchAndUpdateHabitCard(id);
+                else window.fetchAndAppendHabitCard(result.id);
+            }
+        };
+
+        window.getLocalDateString = function(date = new Date()) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        window.toggleHabit = async function(id, el) {
+            el.classList.toggle('checked');
+            const isChecked = el.classList.contains('checked');
+            const color = el.closest('.habit-card').style.borderLeftColor;
+            if (isChecked) {
+                el.style.backgroundColor = color;
+                el.style.borderColor = 'transparent';
+            } else {
+                el.style.backgroundColor = 'rgba(0,0,0,0.3)';
+                el.style.borderColor = 'rgba(255,255,255,0.1)';
+            }
+            const todayStr = window.getLocalDateString();
+            const response = await fetch(`/toggle_habit/${id}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({date: todayStr})
+            });
+            if (response.ok) {
+                window.fetchCalendarData();
+                window.fetchWeeklyReport(0);
+                window.updateHabitKPIs();
+            }
+        };
+
+        window.deleteHabit = function(id, name) {
+            document.getElementById('deleteHabitId').value = id;
+            document.getElementById('deleteHabitName').textContent = name;
+            window.openModal('deleteHabitModal');
+        };
+
+        window.confirmDeleteHabit = async function() {
+            const id = document.getElementById('deleteHabitId').value;
+            const response = await fetch(`/delete_habit/${id}`, {method: 'POST'});
+            if (response.ok) {
+                window.closeModal('deleteHabitModal');
+                showToast('Habit Deleted', 'info');
+                const card = document.querySelector(`.habit-card[data-id="${id}"]`);
+                if (card) {
+                    card.classList.add('fade-out');
+                    setTimeout(() => { card.remove(); window.updateHabitKPIs(); }, 400);
+                }
+            }
+        };
+
+        window.fetchCalendarData = async function() {
+            const response = await fetch(`/habit_calendar_data?month=${currentMonth + 1}&year=${currentYear}`);
+            const result = await response.json();
+            if (result.success) window.renderCalendar(result.data);
+        };
+
+        window.renderCalendar = function(data) {
+            const grid = document.getElementById('calendarGrid');
+            const title = document.getElementById('currentMonthYear');
+            if (!grid) return;
+            grid.innerHTML = '';
+            const dateObj = new Date(currentYear, currentMonth, 1);
+            title.textContent = dateObj.toLocaleDateString('en-US', {month: 'long', year: 'numeric'});
+            let firstDay = new Date(currentYear, currentMonth, 1).getDay();
+            firstDay = firstDay === 0 ? 6 : firstDay - 1;
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            for (let i = 0; i < firstDay; i++) {
+                const empty = document.createElement('div');
+                empty.className = 'calendar-day opacity-20 pointer-events-none';
+                grid.appendChild(empty);
+            }
+            const todayStr = window.getLocalDateString();
+            for (let day = 1; day <= daysInMonth; day++) {
+                const currentDay = new Date(currentYear, currentMonth, day);
+                const dayStr = window.getLocalDateString(currentDay);
+                const dayData = data[dayStr] || [];
+                const dayEl = document.createElement('div');
+                dayEl.className = `calendar-day ${dayStr === todayStr ? 'today' : ''}`;
+                dayEl.onclick = () => window.showDayDetails(dayStr, dayData);
+                dayEl.innerHTML = `
+                    <span class="day-number">${day}</span>
+                    <div class="dots-container">
+                        ${dayData.map(h => `<div class="habit-dot has-tooltip" style="background-color: ${h.color}"><div class="tooltip">${h.name}</div></div>`).join('')}
+                    </div>
+                `;
+                grid.appendChild(dayEl);
+            }
+        };
+
+        window.showDayDetails = function(dateStr, data) {
+            document.getElementById('selectedDayText').textContent = dateStr;
+            const container = document.getElementById('dayHabitsList');
+            if (data.length === 0) {
+                container.innerHTML = '<p class="text-xs text-gray-700 italic">No habits completed this day</p>';
+            } else {
+                container.innerHTML = data.map(h => `
+                    <div class="flex items-center space-x-2 text-xs text-gray-400">
+                        <div class="w-2 h-2 rounded-full" style="background-color: ${h.color}"></div>
+                        <span>${h.name}</span>
+                    </div>
+                `).join('');
+            }
+        };
+
+        window.changeMonth = function(delta) {
+            currentMonth += delta;
+            if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+            if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+            window.fetchCalendarData();
+        };
+
+        window.goToToday = function() {
+            const today = new Date();
+            currentYear = today.getFullYear();
+            currentMonth = today.getMonth();
+            window.fetchCalendarData();
+        };
+
+        window.fetchWeeklyReport = async function(offset) {
+            weekOffset += offset;
+            const response = await fetch(`/habit_weekly_report?week_offset=${weekOffset}`);
+            const data = await response.json();
+            if (data.success) {
+                const label = document.getElementById('weekRangeLabel');
+                if (label) label.textContent = data.week_label;
+                window.renderWeeklyChart(data);
+            }
+        };
+
+        window.renderWeeklyChart = function(data) {
+            const chartEl = document.getElementById('weeklyHabitChart');
+            if (!chartEl) return;
+            const ctx = chartEl.getContext('2d');
+            const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+            if (weeklyChartInstance) weeklyChartInstance.destroy();
+            weeklyChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.chart_labels,
+                    datasets: [{
+                        data: data.chart_data,
+                        backgroundColor: accentColor + '44',
+                        borderColor: accentColor,
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666', stepSize: 1 } },
+                        x: { grid: { display: false }, ticks: { color: '#666' } }
+                    }
+                }
+            });
+        };
+
+        window.toggleWeekReport = function(delta) { window.fetchWeeklyReport(delta); };
+
+        window.initSortable = function() {
+            document.querySelectorAll('[id^="habitsContainer-"]').forEach(container => {
+                if (container._sortable) return; 
+                const s = new Sortable(container, {
+                    handle: '.drag-handle',
+                    animation: 150,
+                    ghostClass: 'sortable-ghost',
+                    onEnd: function() {
+                        const ids = Array.from(document.querySelectorAll('.habit-card')).map(card => card.dataset.id);
+                        fetch('/reorder_habits', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({habit_ids: ids})
+                        });
+                    }
+                });
+                container._sortable = s;
+            });
+        };
+        
+        let modalChartInstance = null;
+        window.openHabitChartModal = function() {
+            window.openModal('habitChartModal');
+            setTimeout(() => {
+                const chartEl = document.getElementById('modalHabitChart');
+                if (!chartEl) return;
+                const ctx = chartEl.getContext('2d');
+                if (modalChartInstance) modalChartInstance.destroy();
+                
+                const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+                
+                modalChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: weeklyChartInstance ? weeklyChartInstance.data.labels : [],
+                        datasets: [{
+                            label: 'Habits Completed',
+                            data: weeklyChartInstance ? weeklyChartInstance.data.datasets[0].data : [],
+                            borderColor: accentColor,
+                            backgroundColor: accentColor + '22',
+                            borderWidth: 3,
+                            pointBackgroundColor: accentColor,
+                            pointHoverRadius: 8,
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: 'rgba(255,255,255,0.03)' },
+                                ticks: { color: '#6b7280', font: { family: 'Outfit, sans-serif', size: 12 } }
+                            },
+                            y: {
+                                grid: { color: 'rgba(255,255,255,0.03)' },
+                                ticks: { color: '#6b7280', font: { family: 'Outfit, sans-serif', size: 12 }, stepSize: 1 }
+                            }
+                        }
+                    }
+                });
+            }, 100);
+        };
+
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'tf_theme') {
+                const theme = JSON.parse(e.newValue);
+                if (weeklyChartInstance) {
+                    weeklyChartInstance.data.datasets[0].borderColor = theme.accent;
+                    weeklyChartInstance.data.datasets[0].backgroundColor = theme.accent + '44';
+                    weeklyChartInstance.update();
+                }
+                if (modalChartInstance) {
+                    modalChartInstance.data.datasets[0].borderColor = theme.accent;
+                    modalChartInstance.data.datasets[0].backgroundColor = theme.accent + '22';
+                    modalChartInstance.update();
+                }
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const todayStr = getLocalDateString();
+            if (urlParams.get('today') !== todayStr) {
+                urlParams.set('today', todayStr);
+                window.location.search = urlParams.toString();
+                return;
+            }
+            fetchCalendarData();
+            fetchWeeklyReport(0);
+            initSortable();
+        });
+    </script>
+{% endblock %}
+

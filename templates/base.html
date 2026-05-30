@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}TaskFlow Noir{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23000'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-family='system-ui,sans-serif' font-weight='bold' font-size='20' fill='%23fff'>T</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    {% block head_extra %}{% endblock %}
+    <style>
+        :root {
+            --bg: {{settings.get('theme_bg', '#000000')}};
+            --surface: {{settings.get('theme_surface', '#0d0d0d')}};
+            --accent: {{settings.get('theme_accent', settings.get('theme_color', '#ffffff'))}};
+            --text: {{settings.get('theme_text', '#e5e7eb')}};
+            --muted: {{settings.get('theme_muted', '#6b7280')}};
+            --border: {{settings.get('theme_border', '#1a1a1a')}};
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.07);
+            --sidebar-width: 256px;
+        }
+        * { transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease; }
+        body { background-color: var(--bg); color: var(--text); font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        
+        .glass-panel { background: var(--glass); border: 1px solid var(--glass-border); backdrop-filter: blur(10px); }
+        
+        /* Interactive Elements */
+        input, textarea, select { background-color: var(--surface) !important; color: var(--text) !important; border: 1px solid var(--border) !important; outline: none; border-radius: 12px; transition: all 0.3s ease; }
+        input:focus, textarea:focus, select:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 4px var(--accent-transparent); }
+        
+        button { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        
+        .noir-card { background-color: var(--surface) !important; border: 1px solid var(--border) !important; transition: all 0.3s ease; position: relative; overflow: hidden; }
+        .noir-card:hover { border-color: var(--accent) !important; box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
+        
+        /* ── Sidebar ──────────────────────────────────────────────────────── */
+        .sidebar {
+            background-color: var(--bg);
+            border-right: 1px solid var(--border);
+            width: var(--sidebar-width);
+            min-width: var(--sidebar-width);
+            transition: width 0.3s ease, min-width 0.3s ease;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar a:hover { background-color: var(--accent-transparent); color: var(--accent); }
+        .sidebar a.active { background-color: var(--accent-transparent); color: var(--accent); border-left: 3px solid var(--accent); }
+
+        /* Collapsed sidebar — icon-only 60px */
+        .sidebar.collapsed, .sidebar.tablet-collapsed {
+            width: 60px;
+            min-width: 60px;
+        }
+        .sidebar.collapsed h1, .sidebar.tablet-collapsed h1,
+        .sidebar.collapsed .sidebar-title, .sidebar.tablet-collapsed .sidebar-title,
+        .sidebar.collapsed nav a span, .sidebar.tablet-collapsed nav a span,
+        .sidebar.collapsed nav a div, .sidebar.tablet-collapsed nav a div,
+        .sidebar.collapsed .sidebar-quote, .sidebar.tablet-collapsed .sidebar-quote { display: none; }
+        
+        .sidebar.collapsed nav a, .sidebar.tablet-collapsed nav a { justify-content: center; padding: 12px; }
+        .sidebar.collapsed nav a i, .sidebar.tablet-collapsed nav a i { margin: 0; font-size: 1.1rem; width: 20px; display: block; }
+        .sidebar.collapsed .sidebar-footer, .sidebar.tablet-collapsed .sidebar-footer { padding: 8px; justify-content: center; }
+        .sidebar.collapsed .sidebar-footer .shortcuts-btn, .sidebar.tablet-collapsed .sidebar-footer .shortcuts-btn { display: none; }
+        .sidebar.collapsed .sidebar-header, .sidebar.tablet-collapsed .sidebar-header { justify-content: center; }
+        .sidebar.collapsed #sidebarToggle, .sidebar.tablet-collapsed #sidebarToggle { margin: 0; }
+
+        /* Nav link tooltips when collapsed */
+        .sidebar.collapsed nav a, .sidebar.tablet-collapsed nav a { position: relative; }
+        .sidebar.collapsed nav a::after, .sidebar.tablet-collapsed nav a::after {
+            content: attr(data-label);
+            position: absolute;
+            left: calc(100% + 8px);
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 200;
+        }
+        .sidebar.collapsed nav a:hover::after, .sidebar.tablet-collapsed nav a:hover::after { opacity: 1; }
+
+        /* Toggle button */
+        #sidebarToggle {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--muted);
+            font-size: 0.7rem;
+            flex-shrink: 0;
+            transition: all 0.3s ease;
+        }
+        #sidebarToggle:hover { color: var(--accent); border-color: var(--accent); }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+        
+        /* Table Wrapper */
+        .table-responsive { overflow-x: auto; width: 100%; border-radius: 12px; }
+        table thead { position: sticky; top: 0; z-index: 10; }
+
+        /* Modals - ensure scrollable content but don't override max-w sizing */
+        [id*="Modal"] > div, [id*="Panel"] > div { 
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        /* Toasts */
+        #toast { 
+            background: var(--surface); 
+            color: var(--text); 
+            border: 1px solid var(--border); 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8); 
+            min-width: 280px;
+        }
+
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in-up { animation: fadeInUp 0.5s ease-out; }
+        .animate-fade-in-down { animation: fadeInDown 0.4s ease-out; }
+
+        /* Expand/Collapse Animations */
+        .subtasks-container.animatable {
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+            max-height: 0;
+            opacity: 0;
+        }
+        .subtasks-container.expanded {
+            max-height: 2000px;
+            opacity: 1;
+        }
+        .chevron-icon {
+            transition: transform 0.3s ease;
+        }
+        .chevron-icon.rotated {
+            transform: rotate(90deg);
+        }
+
+        /* Tablet Breakdown */
+        @media (max-width: 1024px) {
+            :root { --sidebar-width: 60px; }
+            .sidebar:not(.mobile-nav) { width: 60px !important; min-width: 60px !important; }
+            .sidebar:not(.mobile-nav) h1, .sidebar:not(.mobile-nav) .sidebar-title, 
+            .sidebar:not(.mobile-nav) nav a span, .sidebar:not(.mobile-nav) nav a div, 
+            .sidebar:not(.mobile-nav) .sidebar-quote, .sidebar:not(.mobile-nav) #sidebarToggle { display: none !important; }
+            .sidebar:not(.mobile-nav) nav a { justify-content: center; padding: 12px; }
+            .sidebar:not(.mobile-nav) .sidebar-header { justify-content: center; }
+            .sidebar:not(.mobile-nav) .sidebar-footer { padding: 8px; justify-content: center; }
+            .sidebar:not(.mobile-nav) .shortcuts-btn { display: none; }
+        }
+
+        /* Mobile Breakdown */
+        @media (max-width: 768px) {
+            body { flex-direction: column !important; overflow: auto !important; }
+            .sidebar, .sidebar.collapsed, .sidebar.tablet-collapsed { 
+                width: 100% !important; 
+                min-width: 100% !important; 
+                height: 70px !important; 
+                flex-direction: row !important; 
+                padding: 0 12px !important; 
+                position: fixed !important; 
+                bottom: 0 !important; 
+                left: 0 !important;
+                z-index: 100 !important; 
+                border-right: none !important; 
+                border-top: 1px solid var(--border) !important; 
+                background: var(--surface) !important; 
+                backdrop-filter: blur(15px);
+            }
+            .sidebar h1, .sidebar .sidebar-header, .sidebar .mt-auto, .sidebar-quote, #sidebarToggle { display: none !important; }
+            .sidebar nav { display: flex !important; flex: 1 !important; justify-content: space-around !important; height: 100%; align-items: center; }
+            .sidebar nav a { flex-direction: column !important; font-size: 0.625rem !important; padding: 4px !important; justify-content: center !important; margin: 0 !important; border-radius: 0 !important; height: 100%; flex: 1; }
+            .sidebar nav a i { font-size: 1.2rem !important; margin-bottom: 4px !important; }
+            .sidebar nav a span,
+            .sidebar.collapsed nav a span, .sidebar.tablet-collapsed nav a span { display: block !important; }
+            .sidebar nav a div,
+            .sidebar.collapsed nav a div, .sidebar.tablet-collapsed nav a div { display: flex !important; flex-direction: column !important; }
+            .sidebar a.active { border-left: none !important; border-top: 2px solid var(--accent) !important; }
+            
+            main { padding: 1.5rem !important; padding-bottom: 90px !important; overflow: visible !important; width: 100% !important; }
+            
+            #toast { 
+                top: 20px !important;
+                bottom: auto !important;
+                left: 50% !important; 
+                right: auto !important; 
+                transform: translateX(-50%) translateY(0) !important;
+                width: 90% !important; 
+                max-width: 400px;
+                text-align: center;
+            }
+            #toast.translate-y-24.opacity-0 {
+                transform: translateX(-50%) translateY(-100px) !important;
+                opacity: 0 !important;
+            }
+
+            /* Modals: Ensure max-width 95vw on mobile */
+            [id*="Modal"] > div, [id*="Panel"] > div { 
+                max-width: 95vw !important;
+                width: 95vw !important;
+                margin: 0 auto;
+            }
+
+            /* Minimum 44px touch targets on mobile for usability */
+            button, a.btn, input[type="submit"], select, input[type="text"], input[type="date"], textarea, .cat-filter-btn {
+                min-height: 44px;
+            }
+            /* Small inline action buttons with extended touch target */
+            .subtask-action-btn, .task-row button {
+                min-width: 44px;
+                min-height: 44px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .grid-cols-4, .grid-cols-3 { grid-template-columns: repeat(2, 1fr) !important; }
+            .grid-cols-2 { grid-template-columns: 1fr !important; }
+            
+            header { flex-direction: column; align-items: flex-start; gap: 1rem; }
+            header .flex { width: 100%; flex-wrap: wrap; gap: 0.5rem; }
+            header button, header a { flex: 1; min-width: 140px; padding: 0.75rem !important; font-size: 0.8rem !important; }
+        }
+
+        @media (max-width: 480px) {
+            .grid-cols-4, .grid-cols-3, .grid-cols-2 { grid-template-columns: 1fr !important; }
+            .grid { grid-template-columns: 1fr !important; }
+            table { font-size: 0.75rem !important; }
+            th, td { padding: 0.75rem 0.5rem !important; }
+        }
+
+        /* Print styles */
+        @media print {
+            .sidebar, #toast, #sidebarToggle,
+            button:not(.print-show),
+            .quick-capture-bar,
+            [class*="modal"],
+            [id*="Modal"],
+            [id*="Panel"] { display: none !important; }
+            body { background: #fff !important; color: #000 !important; font-size: 12pt; }
+            main { padding: 0 !important; overflow: visible !important; }
+            .noir-card { background: #fff !important; border: 1px solid #ccc !important; box-shadow: none !important; }
+            table, th, td { border: 1px solid #ccc !important; color: #000 !important; }
+            .progress-bar { background: #000 !important; }
+            .progress-container { background: #eee !important; }
+            a { color: #000 !important; text-decoration: none; }
+        }
+        
+        {% block style %}{% endblock %}
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden">
+    <aside id="mainSidebar" class="sidebar flex flex-col p-4">
+        <!-- Header row: title + toggle button -->
+        <div class="sidebar-header flex items-center justify-between mb-10 px-2">
+            <h1 class="text-2xl font-bold tracking-widest uppercase text-white sidebar-title" style="color:var(--text)">TaskFlow <span style="color:var(--accent)">Noir</span></h1>
+            <button id="sidebarToggle" onclick="toggleSidebar()" title="Toggle Sidebar (Ctrl+B)">
+                <i id="sidebarToggleIcon" class="fas fa-chevron-left"></i>
+            </button>
+        </div>
+        <nav class="flex-1 space-y-1">
+            <a href="/" data-label="Dashboard" class="flex items-center space-x-3 p-3 transition text-base rounded-xl {{ 'active' if request.path == '/' else 'text-gray-500' }}">
+                <i class="fas fa-th-large w-5 text-center"></i> <span>Dashboard</span>
+            </a>
+            <a href="/habits" id="sidebarHabitsLink" data-label="Habits" class="flex items-center space-x-3 p-3 transition text-base rounded-xl {{ 'active' if request.path == '/habits' else 'text-gray-500' }}">
+                <i class="fas fa-dumbbell w-5 text-center"></i>
+                <div class="flex flex-col leading-tight">
+                    <span>Habits</span>
+                    <span id="sidebarHabitCount" class="text-[10px] opacity-60 font-medium"></span>
+                </div>
+            </a>
+            <a href="/archive" data-label="Archive" class="flex items-center space-x-3 p-3 transition text-base rounded-xl {{ 'active' if request.path == '/archive' else 'text-gray-500' }}">
+                <i class="fas fa-history w-5 text-center"></i> <span>Archive</span>
+            </a>
+            <a href="/reports" data-label="Reports" class="flex items-center space-x-3 p-3 transition text-base rounded-xl {{ 'active' if request.path == '/reports' else 'text-gray-500' }}">
+                <i class="fas fa-chart-bar w-5 text-center"></i> <span>Reports</span>
+            </a>
+            <a href="/templates" data-label="Templates" class="flex items-center space-x-3 p-3 transition text-base rounded-xl {{ 'active' if request.path == '/templates' else 'text-gray-500' }}">
+                <i class="fas fa-layer-group w-5 text-center"></i> <span>Templates</span>
+            </a>
+            <a href="/settings" data-label="Settings" class="flex items-center space-x-3 p-3 transition text-base rounded-xl {{ 'active' if request.path == '/settings' else 'text-gray-500' }}">
+                <i class="fas fa-cog w-5 text-center"></i> <span>Settings</span>
+            </a>
+        </nav>
+        <!-- Sidebar footer: quote + streak -->
+        <div class="sidebar-footer mt-auto p-3 border border-white/5 rounded-xl bg-white/[0.02] flex items-start justify-between">
+            <div class="sidebar-quote flex-1 min-w-0">
+                <p class="text-xs text-gray-600 uppercase mb-2 italic truncate">"{{daily_quote}}"</p>
+                <div class="text-sm text-gray-400 font-bold tracking-tighter uppercase flex items-center justify-between">
+                    <span>🔥 {{streak}}-day streak</span>
+                    <button onclick="openModal('shortcutsPanel')" class="shortcuts-btn text-gray-600 hover:text-white text-xs" title="Shortcuts">?</button>
+                </div>
+            </div>
+            {% block sidebar_footer_extra %}{% endblock %}
+        </div>
+
+        <!-- Sidebar toggle button removed from here - now inline with title above -->
+    </aside>
+
+    <main class="flex-1 overflow-y-auto p-8 relative" id="mainContent">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Shortcuts Modal -->
+    <div id="shortcutsPanel" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModal('shortcutsPanel')">
+        <div class="noir-card p-8 rounded-3xl w-full max-w-lg" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-white"><i class="fas fa-keyboard mr-2"></i> Keyboard Shortcuts</h3>
+                <button onclick="closeModal('shortcutsPanel')" class="text-gray-500 hover:text-white text-xl">&times;</button>
+            </div>
+            <div class="grid grid-cols-1 gap-3">
+                <div class="flex justify-between text-sm"><span class="text-gray-400">New Task / Habit</span><kbd class="bg-white/10 px-2 py-1 rounded text-white text-xs">N</kbd></div>
+                <div class="flex justify-between text-sm"><span class="text-gray-400">Search</span><kbd class="bg-white/10 px-2 py-1 rounded text-white text-xs">Ctrl+K</kbd></div>
+                <div class="flex justify-between text-sm"><span class="text-gray-400">Quick Capture (Dashboard)</span><kbd class="bg-white/10 px-2 py-1 rounded text-white text-xs">Ctrl+Shift+N</kbd></div>
+                <div class="flex justify-between text-sm"><span class="text-gray-400">Toggle Sidebar</span><kbd class="bg-white/10 px-2 py-1 rounded text-white text-xs">Ctrl+B</kbd></div>
+                <div class="flex justify-between text-sm"><span class="text-gray-400">Close Modal</span><kbd class="bg-white/10 px-2 py-1 rounded text-white text-xs">ESC</kbd></div>
+                <div class="flex justify-between text-sm"><span class="text-gray-400">Shortcuts Help</span><kbd class="bg-white/10 px-2 py-1 rounded text-white text-xs">?</kbd></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-10 right-10 bg-white text-black px-8 py-4 rounded-xl font-bold transform translate-y-24 opacity-0 transition-all duration-500 z-50 shadow-2xl text-sm uppercase tracking-widest"></div>
+
+    <script>
+        (function(){
+            const applyTheme = (d) => {
+                if(!d) return;
+                const r = document.documentElement;
+                r.style.setProperty('--bg', d.bg);
+                r.style.setProperty('--surface', d.surface);
+                r.style.setProperty('--accent', d.accent);
+                r.style.setProperty('--text', d.text);
+                r.style.setProperty('--muted', d.muted);
+                r.style.setProperty('--border', d.border);
+                
+                const hex = d.accent.replace('#', '');
+                const r_val = parseInt(hex.substring(0, 2), 16);
+                const g_val = parseInt(hex.substring(2, 4), 16);
+                const b_val = parseInt(hex.substring(4, 6), 16);
+                r.style.setProperty('--accent-transparent', `rgba(${r_val}, ${g_val}, ${b_val}, 0.15)`);
+            };
+            const applyFontSize = (size) => {
+                if(size === 'small') document.documentElement.style.fontSize = '14px';
+                else if(size === 'large') document.documentElement.style.fontSize = '18px';
+                else document.documentElement.style.fontSize = '16px';
+            };
+
+            const d = JSON.parse(localStorage.getItem('tf_theme'));
+            applyTheme(d);
+            const fs = localStorage.getItem('taskflow_font_size');
+            applyFontSize(fs);
+
+            // Apply saved sidebar state immediately (before paint) to avoid flash
+            if(localStorage.getItem('sidebar_collapsed') === 'true') {
+                const sidebar = document.getElementById('mainSidebar');
+                if(sidebar) sidebar.classList.add('collapsed');
+                const icon = document.getElementById('sidebarToggleIcon');
+                if(icon) { icon.classList.remove('fa-chevron-left'); icon.classList.add('fa-chevron-right'); }
+            }
+
+            window.addEventListener('storage', (e) => {
+                if (e.key === 'tf_theme') applyTheme(JSON.parse(e.newValue));
+                if (e.key === 'taskflow_font_size') applyFontSize(e.newValue);
+            });
+        })();
+
+        window.openModal = function(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('hidden');
+        };
+
+        window.closeModal = function(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        };
+
+        window.closeModalOnOutside = function(id, event) {
+            if (event.target === document.getElementById(id)) {
+                window.closeModal(id);
+            }
+        };
+        
+        window.toggleSidebar = function() {
+            const sidebar = document.getElementById('mainSidebar');
+            const icon = document.getElementById('sidebarToggleIcon');
+            if (!sidebar) return;
+            const collapsed = sidebar.classList.toggle('collapsed');
+            if (icon) {
+                icon.classList.toggle('fa-chevron-left', !collapsed);
+                icon.classList.toggle('fa-chevron-right', collapsed);
+            }
+            localStorage.setItem('sidebar_collapsed', collapsed ? 'true' : 'false');
+        };
+
+        window.showToast = function(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            if (!toast) return;
+            toast.innerHTML = message;
+            toast.className = 'fixed bottom-10 right-10 px-8 py-4 rounded-xl font-bold transform translate-y-0 opacity-100 transition-all duration-500 z-50 shadow-2xl text-sm uppercase tracking-widest border';
+            
+            if (type === 'error') {
+                toast.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                toast.style.color = '#ef4444';
+                toast.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+            } else if (type === 'info') {
+                toast.style.backgroundColor = 'var(--surface)';
+                toast.style.color = 'var(--text)';
+                toast.style.borderColor = 'var(--border)';
+            } else {
+                toast.style.backgroundColor = 'var(--accent)';
+                toast.style.color = '#000';
+                toast.style.borderColor = 'transparent';
+            }
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-24', 'opacity-0');
+            }, 3000);
+        };
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.fixed.inset-0:not(.hidden)').forEach(m => {
+                    if (m.id !== 'toast') m.classList.add('hidden');
+                });
+            }
+            if (e.key === '?' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+                openModal('shortcutsPanel');
+            }
+            if (e.key === 'd' && e.ctrlKey && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+                e.preventDefault();
+                window.location.href = '/';
+            }
+            if (e.key === 'b' && e.ctrlKey) {
+                e.preventDefault();
+                toggleSidebar();
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            {% if not settings.get('backup_folder') %}
+            if (localStorage.getItem('dont_remind_auto_backup') !== 'true') {
+                showToast('⚠️ Please set an Auto-Backup folder in <a href="/settings" class="underline font-black">Settings</a> to keep your data safe! <button onclick="localStorage.setItem(\'dont_remind_auto_backup\', \'true\'); this.parentElement.classList.add(\'opacity-0\')" class="ml-2 text-[10px] bg-white/20 px-2 py-1 rounded">Dismiss</button>', 'info');
+            }
+            {% endif %}
+
+            const lastBackup = localStorage.getItem('last_backup_reminder');
+            const now = new Date().getTime();
+            const week = 7 * 24 * 60 * 60 * 1000;
+            
+            if (!lastBackup || (now - parseInt(lastBackup)) > week) {
+                if (localStorage.getItem('dont_remind_backup') !== 'true') {
+                    showToast('💾 Weekly Backup Reminder: Export your data from <a href="/settings" class="underline font-black">Settings</a> to keep it safe! <button onclick="localStorage.setItem(\'dont_remind_backup\', \'true\'); this.parentElement.classList.add(\'opacity-0\')" class="ml-2 text-[10px] bg-white/20 px-2 py-1 rounded">Don\'t remind again</button>', 'info');
+                    localStorage.setItem('last_backup_reminder', now.toString());
+                }
+            }
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

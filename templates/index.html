@@ -1,0 +1,1676 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | TaskFlow Noir{% endblock %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+{% endblock %}
+
+{% block style %}
+    .urgent-glow { animation: pulse-red 2s infinite; }
+    @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); } 70% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
+    @keyframes bounceIn { 0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+    .filter-btn.active { background-color: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.4); }
+    .task-row:hover { background-color: rgba(255,255,255,0.02); }
+    .progress-container { width: 100%; background-color: #1a1a1a; height: 4px; border-radius: 2px; margin-top: 8px; }
+    .progress-bar { height: 100%; background: var(--accent); transition: width 0.7s ease; border-radius: 2px; }
+    .date-wrapper { position: relative; display: inline-flex; align-items: center; }
+    .date-wrapper input[type="date"] { background: transparent; border: 1px solid transparent; color: #9ca3af; font-size: 0.875rem; padding: 6px 32px 6px 10px; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; width: 140px; text-align: center; }
+    .date-wrapper input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.4); cursor: pointer; opacity: 0; position: absolute; right: 0; width: 100%; height: 100%; }
+    .date-wrapper .cal-icon { position: absolute; right: 10px; color: #6b7280; font-size: 0.875rem; pointer-events: none; }
+    .subtask-action-btn, .drag-handle-sub { opacity: 0; transition: opacity 0.2s ease; }
+    .subtask-row:hover .subtask-action-btn, .subtask-row:hover .drag-handle-sub { opacity: 1; }
+    .overdue-badge { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; font-size: 0.625rem; padding: 2px 8px; border-radius: 4px; }
+    .tag-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.625rem; margin-right: 4px; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
+    .sortable-ghost { opacity: 0.3; background: rgba(255,255,255,0.05); }
+    .sortable-chosen { background: rgba(255,255,255,0.08); }
+    .quick-capture-bar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 30; width: 90%; max-width: 600px; transition: all 0.3s ease; }
+    @media (max-width: 768px) {
+        .quick-capture-bar { bottom: 80px; width: calc(100% - 2rem); max-width: none; border-radius: 12px; }
+    }
+    .onboarding-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; display: flex; align-items: center; justify-content: center; }
+    .onboarding-tooltip { background: #1a1a1a; border: 1px solid #333; padding: 24px; border-radius: 16px; max-width: 400px; text-align: center; }
+    .fade-out { opacity: 0; transform: scale(0.95); transition: all 0.4s ease; pointer-events: none; }
+    .slide-up { height: 0; padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; overflow: hidden; transition: all 0.4s ease; }
+    @media print { .sidebar, .noir-card, button, .bulk-checkbox, #toast, .quick-capture-bar, #onboardingOverlay { display: none !important; } body { background: #fff !important; color: #000 !important; } }
+    
+    /* Premium Hover & micro-animations for subtask edit/delete icons */
+    .subtask-row:hover .subtask-action-btn, .subtask-row:hover .drag-handle-sub { opacity: 1 !important; }
+    .subtask-action-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    .subtask-action-btn:hover { color: var(--accent) !important; transform: scale(1.15); }
+{% endblock %}
+
+{% block content %}
+    <div id="onboardingOverlay" class="hidden onboarding-overlay"><div class="onboarding-tooltip animate-fade-in-up" id="onboardingStep"><i id="onboardingIcon" class="fas fa-rocket text-5xl mb-4" style="color:var(--accent)"></i><h3 id="onboardingTitle" class="text-xl font-bold text-white mb-2">Welcome to TaskFlow Noir</h3><p id="onboardingText" class="text-gray-400 text-sm mb-6">Your minimalist task manager. Let's take a tour!</p><div class="flex justify-center space-x-3"><button id="onboardingSkip" class="text-gray-600 text-sm hover:text-white transition">Skip</button><button id="onboardingNext" class="px-6 py-2 rounded-full font-bold text-sm" style="background:var(--accent);color:#000">Next →</button></div></div></div>
+
+    {% if projects|length > 0 %}
+    <div class="noir-card p-4 mb-6 rounded-xl animate-fade-in-down">
+        <div class="flex justify-between items-center mb-2">
+            <span class="text-sm text-gray-500 uppercase tracking-wider">Overall Progress</span>
+            <span class="text-lg font-bold text-white" id="overallProgressText">0%</span>
+        </div>
+        <div class="w-full glass-panel h-3 rounded-full overflow-hidden">
+            <div class="h-full transition-all duration-1000 ease-out rounded-full" id="overallProgressBar" style="width:0%;background:var(--accent)"></div>
+        </div>
+    </div>
+    {% endif %}
+
+    <header class="flex justify-between items-center mb-10">
+        <div>
+            <h2 class="text-4xl font-bold text-white tracking-tighter">Active Tasks</h2>
+            <p class="text-gray-600 text-base" id="todayDate">{{today_date.strftime('%A, %d %B %Y')}}</p>
+        </div>
+        <div class="flex space-x-3">
+            <a href="/habits" class="glass-panel px-4 py-3 rounded-xl text-sm text-gray-400 hover:text-white transition flex items-center"><i class="fas fa-check-circle mr-2 text-green-500"></i> Habits: {{habits_today_done}}/{{habits_today_total}}</a>
+            <button onclick="openTemplateModal()" class="glass-panel px-4 py-3 rounded-xl text-sm text-gray-400 hover:text-white transition"><i class="fas fa-layer-group mr-2"></i> Templates</button>
+            <button id="bulkActionBtn" onclick="showBulkActions()" class="hidden glass-panel px-4 py-3 rounded-xl text-sm text-gray-400 hover:text-white transition"><i class="fas fa-tasks mr-2"></i> Bulk</button>
+            <button onclick="openAddModal()" class="px-8 py-3 rounded-full font-bold text-base transition hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(255,255,255,0.2)]" style="background:var(--accent);color:#000">+ New Task</button>
+        </div>
+    </header>
+
+    <div class="flex space-x-4 mb-4">
+        <input type="text" id="searchInput" placeholder="Search tasks... (Ctrl+K)" oninput="liveSearch()" class="flex-1 glass-panel rounded-xl px-4 py-3 text-base focus:outline-none focus:border-white/30 transition">
+        <div class="flex glass-panel p-1 rounded-xl">
+            <button onclick="filterTasks('all',this)" class="filter-btn active px-6 py-2 rounded-lg text-sm uppercase font-bold transition">All</button>
+            <button onclick="filterTasks('urgent',this)" class="filter-btn px-6 py-2 rounded-lg text-sm uppercase font-bold transition">Urgent</button>
+            <button onclick="filterTasks('high',this)" class="filter-btn px-6 py-2 rounded-lg text-sm uppercase font-bold transition">High</button>
+        </div>
+    </div>
+    
+    <div class="flex items-center space-x-2 overflow-x-auto pb-4 mb-4 scrollbar-hide no-scrollbar" id="categoryFilterContainer">
+        <button class="cat-filter-btn px-4 py-2 rounded-xl text-sm font-bold transition bg-white/10 text-white active-cat" onclick="filterByCategory('All', this)">All Categories</button>
+        {% set categories = [] %}
+        {% for project in projects %}
+            {% if project.category and project.category not in categories %}
+                {% if categories.append(project.category) %}{% endif %}
+                <button class="cat-filter-btn px-4 py-2 rounded-xl text-sm font-bold text-gray-500 hover:text-white hover:bg-white/5 transition" onclick="filterByCategory('{{project.category}}', this)">{{project.category}}</button>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <div id="emptyState" class="{% if projects|length > 0 %}hidden{% endif %} text-center py-20">
+        <i class="fas fa-inbox text-6xl text-gray-800 mb-6"></i>
+        <h3 class="text-xl text-gray-600 font-bold mb-2">No Tasks Yet</h3>
+        <p class="text-gray-700 text-sm">Click "+ New Task" to get started</p>
+    </div>
+
+    <div id="bulkActionsBar" class="hidden noir-card p-3 mb-4 rounded-xl flex items-center space-x-4 animate-fade-in-down">
+        <span class="text-sm text-gray-500" id="selectedCount">0 selected</span>
+        <button onclick="bulkAction('archive')" class="text-sm text-green-500 hover:text-green-400 transition font-bold">Complete</button>
+        <button onclick="bulkAction('delete')" class="text-sm text-red-500 hover:text-red-400 transition font-bold">Delete</button>
+        <button onclick="clearBulkSelection()" class="text-sm text-gray-500 hover:text-white transition ml-auto">Cancel</button>
+    </div>
+
+    <div id="taskTableContainer" class="{% if projects|length == 0 %}hidden{% endif %} noir-card rounded-3xl overflow-hidden shadow-2xl animate-fade-in-up">
+        <div class="table-responsive">
+            <table class="w-full text-left border-collapse">
+                <thead class="glass-panel text-gray-500 uppercase text-xs font-bold">
+                    <tr>
+                        <th class="p-4 w-12 text-center"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()" class="w-4 h-4 accent-white bg-black border-white/10 rounded cursor-pointer"></th>
+                        <th class="p-4">Task Details</th>
+                        <th class="p-4 text-center">Deadline</th>
+                        <th class="p-4 text-center">Priority</th>
+                        <th class="p-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="projectTableBody" class="divide-y divide-white/5">
+                    {% for project in projects %}
+                    {% include 'partials/task_row.html' %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="quick-capture-bar noir-card p-3 rounded-2xl shadow-2xl" id="quickCapture">
+        <input type="text" id="quickCaptureInput" placeholder="Quick capture... (Ctrl+Shift+N)" class="w-full bg-transparent text-sm focus:outline-none text-gray-300" onkeydown="if(event.key==='Enter'){quickAddTask()}">
+    </div>
+
+    <!-- Add Side Project Modal -->
+    <div id="addSideProjectModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('addSideProjectModal',event)">
+        <div class="noir-card p-8 rounded-3xl w-full max-w-md shadow-2xl animate-fade-in-down">
+            <h3 class="text-2xl font-bold mb-6 tracking-tighter text-white">Add Side Project to: <span id="addSPProjectTitle" class="text-accent">Task Name</span></h3>
+            <input type="hidden" id="addSPProjectId">
+            <form id="addSPForm" class="space-y-5" onsubmit="return false">
+                <div>
+                    <label class="text-sm text-gray-500 uppercase font-bold ml-1">Side Project Title *</label>
+                    <input type="text" id="addSPTitle" class="w-full bg-white/5 p-4 rounded-xl text-base focus:outline-none focus:border-white/30 text-white" style="border:1px solid var(--border)" required placeholder="Side Project Name...">
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm text-gray-500 uppercase font-bold ml-1">Subtasks</label>
+                        <button type="button" onclick="window.addSPModalSubtaskRow()" class="text-xs text-accent hover:underline font-bold transition"><i class="fas fa-plus mr-1"></i> Add Subtask</button>
+                    </div>
+                    <div id="addSPModalSubtasks" class="space-y-2 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar"></div>
+                </div>
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button type="button" onclick="closeModal('addSideProjectModal')" class="text-gray-500 text-base font-bold hover:text-white transition">Cancel</button>
+                    <button type="button" id="addSPSubmitBtn" onclick="saveSideProjectOnly()" class="px-10 py-3 rounded-full font-bold text-base" style="background:var(--accent);color:#000">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="addModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('addModal',event)">
+        <div class="noir-card p-8 rounded-3xl w-full max-w-lg shadow-2xl animate-fade-in-down" style="max-height:90vh;overflow-y:auto">
+            <h3 class="text-2xl font-bold mb-6 tracking-tighter text-white">Add New Task</h3>
+            <form id="addForm" class="space-y-5" onsubmit="return false">
+                <div><label class="text-sm text-gray-500 uppercase font-bold ml-1">Title *</label><input type="text" id="addTitle" class="w-full bg-white/5 p-4 rounded-xl text-base focus:outline-none focus:border-white/30" style="border:1px solid var(--border)" required placeholder="Enter task title..."></div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="text-sm text-gray-500 uppercase font-bold ml-1">Deadline</label><div class="date-wrapper w-full"><input type="date" id="addDueDate" class="w-full bg-white/5 p-4 rounded-xl text-sm focus:outline-none focus:border-white/30" style="border:1px solid var(--border)"><i class="fas fa-calendar-alt cal-icon" style="right:16px"></i></div></div>
+                    <div><label class="text-sm text-gray-500 uppercase font-bold ml-1">Priority</label><select id="addPriority" class="w-full bg-white/5 p-4 rounded-xl text-base focus:outline-none focus:border-white/30" style="border:1px solid var(--border)"><option value="Normal">Normal</option><option value="High">High</option><option value="Urgent">Urgent</option></select></div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="text-sm text-gray-500 uppercase font-bold ml-1">Category</label><input type="text" id="addCategory" placeholder="e.g. Work" class="w-full bg-white/5 p-4 rounded-xl text-base focus:outline-none focus:border-white/30" style="border:1px solid var(--border)"></div>
+                    <div><label class="text-sm text-gray-500 uppercase font-bold ml-1">Tags</label><input type="text" id="addTags" placeholder="e.g. meeting, urgent" class="w-full bg-white/5 p-4 rounded-xl text-base focus:outline-none focus:border-white/30" style="border:1px solid var(--border)"></div>
+                </div>
+                <div><label class="text-sm text-gray-500 uppercase font-bold ml-1">Notes</label><textarea id="addNotes" rows="3" placeholder="Add notes..." class="w-full bg-white/5 p-4 rounded-xl text-base focus:outline-none focus:border-white/30 resize-none" style="border:1px solid var(--border)"></textarea></div>
+                <div class="border-t border-white/5 pt-5">
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-sm text-gray-500 uppercase font-bold ml-1">📋 Subtasks</label>
+                        <button type="button" onclick="addModalSubtaskRow('add')" class="text-xs text-accent hover:underline font-bold transition"><i class="fas fa-plus mr-1"></i> Add Subtask</button>
+                    </div>
+                    <div id="addModalSubtasks" class="space-y-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                        <!-- Flat Subtasks loaded here -->
+                    </div>
+                </div>
+
+                <div class="border-t border-white/5 pt-5 mt-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-sm text-gray-500 uppercase font-bold ml-1">📁 Side Projects</label>
+                        <button type="button" onclick="addModalSideProjectBlock('add')" class="text-xs text-accent hover:underline font-bold transition"><i class="fas fa-plus mr-1"></i> Add Side Project</button>
+                    </div>
+                    <div id="addModalSideProjects" class="space-y-4 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                        <!-- Side Projects nested tree will be loaded here -->
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button type="button" onclick="closeModal('addModal')" class="text-gray-500 text-base font-bold hover:text-white transition">Cancel</button>
+                    <button type="button" id="addSubmitBtn" onclick="addNewTask()" class="px-10 py-3 rounded-full font-bold text-base" style="background:var(--accent);color:#000">Add Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="templateModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('templateModal',event)">
+        <div class="noir-card p-8 rounded-3xl w-full max-w-md shadow-2xl animate-fade-in-down">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold text-white">Use Template</h3>
+                <button onclick="toggleSelectAllTemplates()" class="text-xs text-gray-500 hover:text-white uppercase tracking-widest font-bold">Select All</button>
+            </div>
+            <div class="space-y-3 mb-6 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {% if templates|length > 0 %}
+                    {% for template in templates %}
+                    <div class="flex items-center space-x-3 p-3 bg-white/[0.02] rounded-lg border border-white/5 hover:border-white/20 transition cursor-pointer" onclick="toggleTemplateCheckbox({{template.id}})">
+                        <input type="checkbox" class="template-checkbox w-4 h-4 accent-white bg-black border-white/10 rounded cursor-pointer" data-id="{{template.id}}" onclick="event.stopPropagation();updateBatchApplyCount()">
+                        <div class="flex-1">
+                            <span class="text-white font-bold block">{{template.name}}</span>
+                            <span class="text-xs text-gray-600 block">{{template.category}} • {{template.template_subtasks|length}} subtasks</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-gray-600 text-center py-8">No templates yet. <a href="/templates" class="text-white underline">Create one</a></p>
+                {% endif %}
+            </div>
+            <div class="flex flex-col space-y-3">
+                <button id="batchApplyBtn" onclick="applySelectedTemplates()" disabled class="w-full py-3 rounded-xl font-bold text-sm bg-white/5 text-gray-600 border border-white/5 transition-all">Apply Selected (0)</button>
+                <button onclick="closeModal('templateModal')" class="text-gray-500 text-sm font-bold hover:text-white transition w-full text-center">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="editModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('editModal',event)">
+        <div class="noir-card p-8 rounded-3xl w-full max-w-lg shadow-2xl animate-fade-in-down" style="max-height:90vh;overflow-y:auto">
+            <h3 class="text-2xl font-bold mb-6 tracking-tighter text-white">Edit Task</h3>
+            <input type="hidden" id="editTaskId">
+            <div class="space-y-5">
+                <div><label class="text-sm text-gray-500 uppercase font-bold ml-1">Title *</label><input type="text" id="editTitle" class="w-full bg-white/5 p-4 rounded-xl text-base focus:outline-none focus:border-white/30" style="border:1px solid var(--border)" required></div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="text-sm text-gray-500 uppercase font-bold ml-1">Deadline</label><div class="date-wrapper w-full"><input type="date" id="editDueDate" class="w-full bg-white/5 p-4 rounded-xl text-sm focus:outline-none focus:border-white/30" style="border:1px solid var(--border)"><i class="fas fa-calendar-alt cal-icon" style="right:16px"></i></div></div>
+                    <div><label class="text-sm text-gray-500 uppercase font-bold ml-1">Priority</label><select id="editPriority" class="w-full bg-white/5 p-4 rounded-xl text-base focus:outline-none focus:border-white/30" style="border:1px solid var(--border)"><option value="Normal">Normal</option><option value="High">High</option><option value="Urgent">Urgent</option></select></div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="text-sm text-gray-500 uppercase font-bold ml-1">Category</label><input type="text" id="editCategory" class="w-full bg-white/5 p-4 rounded-xl text-base focus:outline-none focus:border-white/30" style="border:1px solid var(--border)"></div>
+                    <div><label class="text-sm text-gray-500 uppercase font-bold ml-1">Tags</label><input type="text" id="editTags" placeholder="e.g. meeting, urgent" class="w-full bg-white/5 p-4 rounded-xl text-base focus:outline-none focus:border-white/30" style="border:1px solid var(--border)"></div>
+                </div>
+                <div><label class="text-sm text-gray-500 uppercase font-bold ml-1">Notes</label><textarea id="editNotes" rows="4" placeholder="Add notes..." class="w-full bg-white/5 p-4 rounded-xl text-base focus:outline-none focus:border-white/30 resize-none" style="border:1px solid var(--border)"></textarea></div>
+                <div class="border-t border-white/5 pt-5">
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-sm text-gray-500 uppercase font-bold ml-1">📋 Subtasks</label>
+                        <button type="button" onclick="addEditModalSubtaskRow()" class="text-xs text-accent hover:underline font-bold transition"><i class="fas fa-plus mr-1"></i> Add Subtask</button>
+                    </div>
+                    <div id="editModalSubtasks" class="space-y-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                        <!-- Flat Subtasks loaded here -->
+                    </div>
+                </div>
+
+                <div class="border-t border-white/5 pt-5 mt-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-sm text-gray-500 uppercase font-bold ml-1">📁 Side Projects</label>
+                        <button type="button" onclick="addEditModalSideProjectBlock()" class="text-xs text-accent hover:underline font-bold transition"><i class="fas fa-plus mr-1"></i> Add Side Project</button>
+                    </div>
+                    <div id="editModalSideProjects" class="space-y-4 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                        <!-- Side Projects nested tree will be loaded here -->
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-4 mt-6">
+                <button onclick="closeModal('editModal')" class="text-gray-500 text-base font-bold hover:text-white transition">Cancel</button>
+                <button onclick="saveEditTask()" id="editSubmitBtn" class="px-10 py-3 rounded-full font-bold text-base" style="background:var(--accent);color:#000">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="completeConfirmModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('completeConfirmModal',event)">
+        <div class="noir-card p-8 rounded-3xl w-full max-w-sm shadow-2xl animate-fade-in-down" style="border-color:rgba(34,197,94,0.3)">
+            <div class="text-center mb-6"><i class="fas fa-check-circle text-green-500 text-5xl mb-4" style="animation:bounceIn 0.5s ease-out"></i><h3 class="text-xl font-bold text-white">Complete Task?</h3><p class="text-gray-500 text-sm mt-2">This will move the task to the archive.</p></div>
+            <input type="hidden" id="completeTargetId">
+            <div class="flex justify-center space-x-4"><button onclick="closeModal('completeConfirmModal')" class="text-gray-400 text-base font-bold hover:text-white transition px-6 py-2 rounded-xl border" style="border-color:var(--border)">Cancel</button><button onclick="confirmComplete()" class="bg-green-500/10 text-green-500 border border-green-500/30 px-6 py-2 rounded-xl font-bold text-base">Complete</button></div>
+        </div>
+    </div>
+
+    <div id="deleteConfirmModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('deleteConfirmModal',event)">
+        <div class="noir-card p-8 rounded-3xl w-full max-w-sm shadow-2xl animate-fade-in-down" style="border-color:rgba(239,68,68,0.3)">
+            <div class="text-center mb-6"><i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-4"></i><h3 class="text-xl font-bold text-white">Delete Task?</h3><p class="text-gray-500 text-sm mt-2">This action cannot be undone. This task and all its nested subtasks and side projects will be permanently deleted.</p></div>
+            <input type="hidden" id="deleteTargetId">
+            <div class="flex justify-center space-x-4"><button onclick="closeModal('deleteConfirmModal')" class="text-gray-400 text-base font-bold hover:text-white transition px-6 py-2 rounded-xl border border-white/10">Cancel</button><button onclick="confirmDeleteProject()" class="bg-red-500/10 text-red-500 border border-red-500/30 px-6 py-2 rounded-xl font-bold text-base hover:bg-red-500/20 transition">Delete</button></div>
+        </div>
+    </div>
+
+    <div id="deleteSubtaskModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('deleteSubtaskModal',event)">
+        <div class="noir-card p-8 rounded-3xl w-full max-w-sm shadow-2xl animate-fade-in-down" style="border-color:rgba(239,68,68,0.3)">
+            <div class="text-center mb-6"><i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-4"></i><h3 class="text-xl font-bold text-white">Delete Subtask?</h3><p class="text-gray-500 text-sm mt-2">This subtask will be permanently removed from your checklist.</p></div>
+            <input type="hidden" id="deleteSubtaskTargetId">
+            <div class="flex justify-center space-x-4"><button onclick="closeModal('deleteSubtaskModal')" class="text-gray-400 text-base font-bold hover:text-white transition px-6 py-2 rounded-xl border border-white/10">Cancel</button><button onclick="confirmDeleteSubtask()" class="bg-red-500/10 text-red-500 border border-red-500/30 px-6 py-2 rounded-xl font-bold text-base hover:bg-red-500/20 transition">Delete</button></div>
+        </div>
+    </div>
+
+    <div id="deleteSideProjectModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('deleteSideProjectModal',event)">
+        <div class="noir-card p-8 rounded-3xl w-full max-w-sm shadow-2xl animate-fade-in-down" style="border-color:rgba(239,68,68,0.3)">
+            <div class="text-center mb-6"><i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-4"></i><h3 class="text-xl font-bold text-white">Delete Side Project?</h3><p class="text-gray-500 text-sm mt-2">This side project folder and all its nested subtasks will be permanently deleted.</p></div>
+            <input type="hidden" id="deleteSideProjectTargetId">
+            <div class="flex justify-center space-x-4"><button onclick="closeModal('deleteSideProjectModal')" class="text-gray-400 text-base font-bold hover:text-white transition px-6 py-2 rounded-xl border border-white/10">Cancel</button><button onclick="confirmDeleteSideProject()" class="bg-red-500/10 text-red-500 border border-red-500/30 px-6 py-2 rounded-xl font-bold text-base hover:bg-red-500/20 transition">Delete</button></div>
+        </div>
+    </div>
+
+    <div id="subModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('subModal',event)">
+        <div class="noir-card p-8 rounded-3xl w-full max-w-md animate-fade-in-down">
+            <h3 class="text-2xl font-bold mb-6 text-white">Add Subtask</h3>
+            <input type="hidden" id="currentProjectId">
+            <input type="text" id="subTitle" class="w-full bg-white/5 p-4 rounded-xl text-base mb-6" style="border:1px solid var(--border)" placeholder="Subtask description...">
+            <div class="flex justify-end space-x-4"><button onclick="closeModal('subModal')" class="text-gray-500 text-base font-bold hover:text-white transition">Cancel</button><button onclick="submitSubTask()" id="subSubmitBtn" class="px-10 py-3 rounded-full font-bold text-base" style="background:var(--accent);color:#000">Add</button></div>
+        </div>
+    </div>
+
+    <!-- Edit Subtask Modal -->
+    <div id="editSubtaskModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('editSubtaskModal',event)">
+        <div class="noir-card p-8 rounded-3xl w-full max-w-md shadow-2xl animate-fade-in-down">
+            <h3 class="text-2xl font-bold mb-6 tracking-tighter text-white">Edit Subtask</h3>
+            <input type="hidden" id="editSubtaskId">
+            <input type="hidden" id="editSubtaskProjectId">
+            <form id="editSubtaskForm" class="space-y-5" onsubmit="return false">
+                <div>
+                    <label class="text-sm text-gray-500 uppercase font-bold ml-1">Subtask Title *</label>
+                    <input type="text" id="editSubtaskTitle" class="w-full bg-white/5 p-4 rounded-xl text-base focus:outline-none focus:border-white/30 text-white" style="border:1px solid var(--border)" required placeholder="Subtask description...">
+                </div>
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button type="button" onclick="closeModal('editSubtaskModal')" class="text-gray-500 text-base font-bold hover:text-white transition">Cancel</button>
+                    <button type="button" id="editSubtaskSubmitBtn" onclick="saveSubtaskEdit()" class="px-10 py-3 rounded-full font-bold text-base" style="background:var(--accent);color:#000">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Side Project Modal -->
+    <div id="editSideProjectModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('editSideProjectModal',event)">
+        <div class="noir-card p-8 rounded-3xl w-full max-w-md shadow-2xl animate-fade-in-down" style="max-height:90vh;overflow-y:auto">
+            <h3 class="text-2xl font-bold mb-6 tracking-tighter text-white">Edit Side Project</h3>
+            <input type="hidden" id="editSPId">
+            <input type="hidden" id="editSPProjectId">
+            <form id="editSPForm" class="space-y-5" onsubmit="return false">
+                <div>
+                    <label class="text-sm text-gray-500 uppercase font-bold ml-1">Side Project Title *</label>
+                    <input type="text" id="editSPTitle" class="w-full bg-white/5 p-4 rounded-xl text-base focus:outline-none focus:border-white/30 text-white" style="border:1px solid var(--border)" required placeholder="Side Project Name...">
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm text-gray-500 uppercase font-bold ml-1">Subtasks</label>
+                        <button type="button" onclick="window.addEditSPModalSubtaskRow()" class="text-xs text-accent hover:underline font-bold transition"><i class="fas fa-plus mr-1"></i> Add Subtask</button>
+                    </div>
+                    <div id="editSPModalSubtasks" class="space-y-2 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
+                        <!-- Subtasks rendered here -->
+                    </div>
+                </div>
+                <div>
+                    <label class="text-sm text-gray-500 uppercase font-bold ml-1">Nested Side Projects</label>
+                    <div id="editSPModalNestedProjects" class="space-y-2 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
+                        <!-- Nested Side Projects list -->
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button type="button" onclick="closeModal('editSideProjectModal')" class="text-gray-500 text-base font-bold hover:text-white transition">Cancel</button>
+                    <button type="button" id="editSPSaveBtn" onclick="saveSideProjectEdit()" class="px-10 py-3 rounded-full font-bold text-base" style="background:var(--accent);color:#000">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        window.filterByCategory = function(category, btn) {
+            document.querySelectorAll('.cat-filter-btn').forEach(b => {
+                b.classList.remove('bg-white/10', 'text-white', 'active-cat');
+                b.classList.add('text-gray-500');
+            });
+            btn.classList.add('bg-white/10', 'text-white', 'active-cat');
+            btn.classList.remove('text-gray-500');
+
+            document.querySelectorAll('.task-row').forEach(row => {
+                if (category === 'All' || row.dataset.category === category) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                    const subs = document.getElementById(`subs-${row.dataset.taskId}`);
+                    if(subs) subs.classList.add('hidden');
+                }
+            });
+            window.updateOverallProgress();
+        };
+
+        window.updateOverallProgress = function() {
+            const rows = document.querySelectorAll('.task-row:not([style*="display: none"])');
+            const bars = Array.from(rows).map(row => row.querySelector('.progress-bar'));
+            let total = 0;
+            bars.forEach(b => total += parseInt(b.style.width) || 0);
+            const avg = bars.length > 0 ? Math.round(total / bars.length) : 0;
+            const progressBar = document.getElementById('overallProgressBar');
+            const progressText = document.getElementById('overallProgressText');
+            if (progressBar) progressBar.style.width = avg + '%';
+            if (progressText) progressText.textContent = avg + '%';
+        };
+
+        window.openAddModal = function() {
+            document.getElementById('addTitle').value = '';
+            document.getElementById('addDueDate').value = '';
+            document.getElementById('addPriority').value = 'Normal';
+            document.getElementById('addCategory').value = '';
+            document.getElementById('addTags').value = '';
+            document.getElementById('addNotes').value = '';
+            document.getElementById('addModalSubtasks').innerHTML = '';
+            document.getElementById('addModalSideProjects').innerHTML = '';
+            window.openModal('addModal');
+        };
+
+        window.openTemplateModal = function() {
+            window.openModal('templateModal');
+        };
+
+        window.openAddSideProjectModal = function(projectId, titleOrElement) {
+            let projectTitle = 'Task';
+            if (typeof titleOrElement === 'string') {
+                projectTitle = titleOrElement;
+            } else if (titleOrElement && typeof titleOrElement.closest === 'function') {
+                const tr = titleOrElement.closest('tr');
+                if (tr) {
+                    const span = tr.querySelector('.tracking-tight');
+                    if (span) projectTitle = span.textContent.trim();
+                }
+            }
+            document.getElementById('addSPProjectId').value = projectId;
+            document.getElementById('addSPProjectTitle').textContent = projectTitle;
+            document.getElementById('addSPTitle').value = '';
+            document.getElementById('addSPModalSubtasks').innerHTML = '';
+            window.addSPModalSubtaskRow();
+            window.openModal('addSideProjectModal');
+        };
+
+        window.addSPModalSubtaskRow = function() {
+            const container = document.getElementById('addSPModalSubtasks');
+            const row = document.createElement('div');
+            row.className = 'flex items-center space-x-2';
+            row.innerHTML = `
+                <input type="text" class="add-sp-subtask-input flex-1 bg-white/5 p-3 rounded-xl text-sm focus:outline-none focus:border-white/30 text-white" style="border:1px solid var(--border)" placeholder="Subtask...">
+                <button type="button" onclick="this.parentElement.remove()" class="text-gray-500 hover:text-red-500 px-2 transition"><i class="fas fa-times"></i></button>
+            `;
+            container.appendChild(row);
+        };
+
+        window.saveSideProjectOnly = async function() {
+            const btn = document.getElementById('addSPSubmitBtn');
+            const projectId = document.getElementById('addSPProjectId').value;
+            const title = document.getElementById('addSPTitle').value.trim();
+            if (!title) {
+                showToast('Title is required', 'error');
+                return;
+            }
+            btn.disabled = true;
+            btn.innerText = 'Saving...';
+            
+            const subtasks = Array.from(document.querySelectorAll('.add-sp-subtask-input')).map(i => i.value.trim()).filter(v => v !== '');
+            
+            const response = await fetch(`/add_side_project/${projectId}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    title,
+                    subtasks
+                })
+            });
+            const result = await response.json();
+            if (result.success) {
+                window.closeModal('addSideProjectModal');
+                showToast('Side Project Added');
+                window.fetchAndUpdateTaskRow(projectId);
+            } else {
+                showToast(result.message || 'Failed to add Side Project', 'error');
+            }
+            btn.disabled = false;
+            btn.innerText = 'Save';
+        };
+
+        window.openEditModal = async function(id, btnOrTitle, priority, category, dueDate, notes, tags) {
+            let title = btnOrTitle;
+            if (btnOrTitle && (btnOrTitle instanceof HTMLElement || typeof btnOrTitle.closest === 'function')) {
+                const row = btnOrTitle.closest('.task-row');
+                title = row.dataset.title;
+                priority = row.dataset.priority;
+                category = row.dataset.category;
+                dueDate = row.dataset.dueDate;
+                notes = row.dataset.notes;
+                tags = row.dataset.tags;
+            }
+
+            document.getElementById('editTaskId').value = id;
+            document.getElementById('editTitle').value = title || '';
+            document.getElementById('editPriority').value = priority || 'Normal';
+            document.getElementById('editCategory').value = category || '';
+            document.getElementById('editDueDate').value = dueDate || '';
+            document.getElementById('editNotes').value = notes || '';
+            document.getElementById('editTags').value = tags || '';
+            
+            const container = document.getElementById('editModalSubtasks');
+            container.innerHTML = '<div class="text-center py-4"><i class="fas fa-circle-notch fa-spin text-gray-600"></i></div>';
+            document.getElementById('editModalSideProjects').innerHTML = '';
+            
+            window.openModal('editModal');
+            
+            const response = await fetch(`/get_project_subtasks/${id}`);
+            const result = await response.json();
+            if (result.success) {
+                container.innerHTML = '';
+                document.getElementById('editModalSideProjects').innerHTML = '';
+                window.deletedSubtaskIds = []; 
+                
+                const subtasks = result.subtasks;
+                
+                // Render root subtasks (parent_id is null, is_side_project is false)
+                subtasks.forEach(s => {
+                    if (s.parent_id === null && !s.is_side_project) {
+                        window.addEditModalSubtaskRow(s.id, s.title, s.is_completed);
+                    }
+                });
+                
+                // Helper to render nested side projects recursively
+                function renderSideProjectRecursive(sp, targetContainer) {
+                    const spDOM = window.createSideProjectBlockDOM(sp.id, sp.title);
+                    targetContainer.appendChild(spDOM);
+                    
+                    const subtasksContainer = spDOM.querySelector('.side-project-subtasks');
+                    const nestedContainer = spDOM.querySelector('.side-project-nested-projects');
+                    
+                    // Find children of this side project
+                    subtasks.forEach(child => {
+                        if (child.parent_id === sp.id) {
+                            if (child.is_side_project) {
+                                renderSideProjectRecursive(child, nestedContainer);
+                            } else {
+                                subtasksContainer.appendChild(
+                                    window.createSubtaskRowDOM(child.id, child.title, child.is_completed)
+                                );
+                            }
+                        }
+                    });
+                }
+                
+                // Render root side projects (parent_id is null, is_side_project is true)
+                subtasks.forEach(s => {
+                    if (s.parent_id === null && s.is_side_project) {
+                        renderSideProjectRecursive(s, document.getElementById('editModalSideProjects'));
+                    }
+                });
+            }
+        };
+        
+        window.deletedSubtaskIds = [];
+
+        window.startSubtaskEdit = function(id) {
+            const wrapper = document.querySelector(`.subtask-item-wrapper[data-subtask-id="${id}"]`);
+            if (!wrapper) return;
+            const isSideProject = wrapper.dataset.isSideProject === 'true';
+            const title = wrapper.dataset.title;
+            
+            if (isSideProject) {
+                window.openEditSideProjectModal(id, title);
+            } else {
+                window.openEditSubtaskModal(id, title);
+            }
+        };
+
+        window.openEditSubtaskModal = function(id, title) {
+            document.getElementById('editSubtaskId').value = id;
+            document.getElementById('editSubtaskTitle').value = title || '';
+            
+            // Find project ID from DOM
+            const wrapper = document.querySelector(`.subtask-item-wrapper[data-subtask-id="${id}"]`);
+            const container = wrapper ? wrapper.closest('.subtasks-container[data-project-id]') : null;
+            const projectId = container ? container.dataset.projectId : null;
+            document.getElementById('editSubtaskProjectId').value = projectId || '';
+            
+            window.openModal('editSubtaskModal');
+        };
+
+        window.saveSubtaskEdit = async function() {
+            const btn = document.getElementById('editSubtaskSubmitBtn');
+            const id = document.getElementById('editSubtaskId').value;
+            const projectId = document.getElementById('editSubtaskProjectId').value;
+            const title = document.getElementById('editSubtaskTitle').value.trim();
+            
+            if (!title) {
+                showToast('Title is required', 'error');
+                return;
+            }
+            btn.disabled = true;
+            btn.innerText = 'Saving...';
+            
+            const response = await fetch(`/update_subtask/${id}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ title })
+            });
+            const result = await response.json();
+            if (result.success) {
+                window.closeModal('editSubtaskModal');
+                showToast('Subtask Updated');
+                if (projectId) window.fetchAndUpdateTaskRow(projectId);
+                else location.reload();
+            } else {
+                showToast(result.message || 'Failed to update subtask', 'error');
+            }
+            btn.disabled = false;
+            btn.innerText = 'Save';
+        };
+
+        window.deletedSPSubtaskIds = [];
+
+        window.openEditSideProjectModal = async function(id, title) {
+            document.getElementById('editSPId').value = id;
+            document.getElementById('editSPTitle').value = title || '';
+            
+            const subtaskContainer = document.getElementById('editSPModalSubtasks');
+            const nestedContainer = document.getElementById('editSPModalNestedProjects');
+            
+            subtaskContainer.innerHTML = '<div class="text-center py-4"><i class="fas fa-circle-notch fa-spin text-gray-600"></i></div>';
+            nestedContainer.innerHTML = '';
+            
+            window.deletedSPSubtaskIds = [];
+            window.openModal('editSideProjectModal');
+            
+            // Find project ID from DOM
+            const wrapper = document.querySelector(`.subtask-item-wrapper[data-subtask-id="${id}"]`);
+            const container = wrapper ? wrapper.closest('.subtasks-container[data-project-id]') : null;
+            let projectId = container ? container.dataset.projectId : null;
+            document.getElementById('editSPProjectId').value = projectId || '';
+            
+            if (!projectId) {
+                subtaskContainer.innerHTML = '<div class="text-gray-500 text-xs">Could not find project context</div>';
+                return;
+            }
+            
+            const response = await fetch(`/get_project_subtasks/${projectId}`);
+            const result = await response.json();
+            if (result.success) {
+                subtaskContainer.innerHTML = '';
+                nestedContainer.innerHTML = '';
+                
+                const subtasks = result.subtasks;
+                
+                // Render child subtasks
+                subtasks.forEach(s => {
+                    if (s.parent_id === id && !s.is_side_project) {
+                        window.renderEditSPSubtaskRow(s.id, s.title);
+                    }
+                });
+                
+                // Render child nested side projects (expandable)
+                let hasNested = false;
+                subtasks.forEach(s => {
+                    if (s.parent_id === id && s.is_side_project) {
+                        hasNested = true;
+                        
+                        const block = document.createElement('div');
+                        block.className = 'bg-white/[0.02] p-3 rounded-xl border border-white/5 space-y-2 nested-sp-item';
+                        block.dataset.id = s.id;
+                        
+                        block.innerHTML = `
+                            <div class="flex items-center space-x-2">
+                                <button type="button" onclick="window.toggleNestedSPExpand(${s.id}, this)" class="text-gray-600 hover:text-white transition text-xs w-4 flex items-center justify-center">
+                                    <i class="fas fa-chevron-right chevron-icon-nested"></i>
+                                </button>
+                                <span class="text-xs text-gray-500">📁</span>
+                                <span class="text-sm font-bold text-gray-300 flex-1">${s.title}</span>
+                                <button type="button" onclick="event.stopPropagation(); window.closeModal('editSideProjectModal'); window.openEditSideProjectModal(${s.id}, '${s.title.replace(/'/g, "\\'")}')" class="text-xs text-accent hover:underline"><i class="fas fa-edit"></i> Edit</button>
+                            </div>
+                            <div id="nested-sp-children-${s.id}" class="hidden pl-6 border-l border-white/5 space-y-1 mt-1">
+                                <!-- Children of this nested SP will be rendered here dynamically -->
+                            </div>
+                        `;
+                        nestedContainer.appendChild(block);
+                        
+                        const childContainer = block.querySelector(`#nested-sp-children-${s.id}`);
+                        let hasChildren = false;
+                        subtasks.forEach(child => {
+                            if (child.parent_id === s.id) {
+                                hasChildren = true;
+                                const childDiv = document.createElement('div');
+                                childDiv.className = 'flex items-center space-x-2 text-xs text-gray-400 py-1';
+                                if (child.is_side_project) {
+                                    childDiv.innerHTML = `<span>📁</span> <span class="font-semibold">${child.title}</span>`;
+                                } else {
+                                    childDiv.innerHTML = `<span>•</span> <span>${child.title}</span>`;
+                                }
+                                childContainer.appendChild(childDiv);
+                            }
+                        });
+                        
+                        if (!hasChildren) {
+                            childContainer.innerHTML = '<div class="text-gray-600 text-[10px]">Empty</div>';
+                        }
+                    }
+                });
+                
+                if (!hasNested) {
+                    nestedContainer.innerHTML = '<div class="text-gray-600 text-xs">No nested side projects.</div>';
+                }
+            } else {
+                subtaskContainer.innerHTML = '<div class="text-red-500 text-xs">Failed to load subtasks</div>';
+            }
+        };
+
+        window.toggleNestedSPExpand = function(id, btn) {
+            const container = document.getElementById(`nested-sp-children-${id}`);
+            const icon = btn.querySelector('.chevron-icon-nested');
+            if (container) {
+                const isHidden = container.classList.contains('hidden');
+                if (isHidden) {
+                    container.classList.remove('hidden');
+                    if (icon) icon.classList.add('rotate-90');
+                } else {
+                    container.classList.add('hidden');
+                    if (icon) icon.classList.remove('rotate-90');
+                }
+            }
+        };
+
+        window.renderEditSPSubtaskRow = function(id = null, title = '') {
+            const container = document.getElementById('editSPModalSubtasks');
+            const uniqueId = id || 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            
+            const row = document.createElement('div');
+            row.className = 'flex items-center space-x-2 edit-sp-subtask-row';
+            row.dataset.subtaskId = uniqueId;
+            row.innerHTML = `
+                <input type="text" class="edit-sp-subtask-input flex-1 bg-white/5 p-3 rounded-xl text-sm focus:outline-none focus:border-white/30 text-white" style="border:1px solid var(--border)" value="${title}" placeholder="Subtask title...">
+                <button type="button" onclick="window.removeEditSPSubtaskRow(this, '${uniqueId}')" class="text-gray-500 hover:text-red-500 px-2 transition"><i class="fas fa-times"></i></button>
+            `;
+            container.appendChild(row);
+        };
+
+        window.addEditSPModalSubtaskRow = function() {
+            window.renderEditSPSubtaskRow();
+        };
+
+        window.removeEditSPSubtaskRow = function(btn, id) {
+            if (id && !String(id).startsWith('temp_')) {
+                window.deletedSPSubtaskIds.push(parseInt(id));
+            }
+            const row = btn.closest('.edit-sp-subtask-row');
+            if (row) row.remove();
+        };
+
+        window.saveSideProjectEdit = async function() {
+            const btn = document.getElementById('editSPSaveBtn');
+            const id = document.getElementById('editSPId').value;
+            const projectId = document.getElementById('editSPProjectId').value;
+            const title = document.getElementById('editSPTitle').value.trim();
+            
+            if (!title) {
+                showToast('Title is required', 'error');
+                return;
+            }
+            btn.disabled = true;
+            btn.innerText = 'Saving...';
+            
+            const subtasks = [];
+            document.querySelectorAll('#editSPModalSubtasks .edit-sp-subtask-row').forEach(row => {
+                const subId = row.dataset.subtaskId;
+                const titleInput = row.querySelector('.edit-sp-subtask-input');
+                if (titleInput && titleInput.value.trim() !== '') {
+                    subtasks.push({
+                        id: String(subId).startsWith('temp_') ? null : parseInt(subId),
+                        title: titleInput.value.trim()
+                    });
+                }
+            });
+            
+            const data = {
+                title,
+                subtasks,
+                delete_subtasks: window.deletedSPSubtaskIds
+            };
+            
+            const response = await fetch(`/update_subtask/${id}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            if (result.success) {
+                window.closeModal('editSideProjectModal');
+                showToast('Side Project Updated');
+                if (projectId) window.fetchAndUpdateTaskRow(projectId);
+                else location.reload();
+            } else {
+                showToast(result.message || 'Failed to update Side Project', 'error');
+            }
+            btn.disabled = false;
+            btn.innerText = 'Save';
+        };
+
+        window.createSubtaskRowDOM = function(id = null, title = '', completed = false) {
+            const uniqueId = id || 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            const div = document.createElement('div');
+            div.className = 'flex items-center space-x-3 edit-subtask-row group';
+            div.dataset.subtaskId = uniqueId;
+            
+            div.innerHTML = `
+                <div class="flex-1 flex items-center space-x-3 bg-white/[0.03] border border-white/5 rounded-xl p-3 focus-within:border-accent/30 transition">
+                    <i class="fas fa-check-circle ${completed ? 'text-green-500' : 'text-gray-700'} text-xs"></i>
+                    <input type="text" class="edit-subtask-input flex-1 bg-transparent text-sm focus:outline-none" value="${title}" placeholder="Subtask title...">
+                </div>
+                <button type="button" onclick="window.removeEditSubtaskRow(this, '${uniqueId}')" class="text-gray-600 hover:text-red-500 transition px-2">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            return div;
+        };
+
+        window.createSideProjectBlockDOM = function(id = null, title = '') {
+            const uniqueId = id || 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            const div = document.createElement('div');
+            div.className = 'side-project-block border border-white/5 bg-white/[0.01] p-4 rounded-2xl ml-4 relative mt-2';
+            div.dataset.sideProjectId = uniqueId;
+            
+            div.innerHTML = `
+                <div class="flex items-center space-x-2 mb-3">
+                    <span class="text-xs text-gray-500">📁</span>
+                    <input type="text" class="side-project-title-input flex-1 bg-transparent text-sm font-bold focus:outline-none border-b border-transparent focus:border-white/20 pb-1 text-white" value="${title}" placeholder="Side Project Name...">
+                    <button type="button" onclick="window.deleteSideProjectBlock('${uniqueId}', this)" class="text-gray-500 hover:text-red-500 transition px-2">
+                        <i class="fas fa-times-circle"></i>
+                    </button>
+                </div>
+                
+                <!-- Subtasks under this Side Project -->
+                <div class="side-project-subtasks space-y-2 mb-3 pl-4 border-l border-white/5"></div>
+                
+                <!-- Nested Side Projects under this Side Project -->
+                <div class="side-project-nested-projects space-y-3 mb-3 pl-4 border-l border-white/5"></div>
+                
+                <div class="flex space-x-3 pl-4">
+                    <button type="button" onclick="window.addSubtaskToSideProject('${uniqueId}', this)" class="text-[11px] text-accent hover:underline transition"><i class="fas fa-plus mr-1"></i> Add Subtask</button>
+                    <button type="button" onclick="window.addNestedSideProjectToSideProject('${uniqueId}', this)" class="text-[11px] text-accent hover:underline transition"><i class="fas fa-plus mr-1"></i> Add Side Project</button>
+                </div>
+            `;
+            return div;
+        };
+
+        window.addModalSubtaskRow = function(prefix, id = null, title = '', completed = false) {
+            const container = document.getElementById(`${prefix}ModalSubtasks`);
+            if (container) {
+                container.appendChild(window.createSubtaskRowDOM(id, title, completed));
+            }
+        };
+
+        window.addModalSideProjectBlock = function(prefix) {
+            const container = document.getElementById(`${prefix}ModalSideProjects`);
+            if (container) {
+                container.appendChild(window.createSideProjectBlockDOM());
+            }
+        };
+
+        window.addEditModalSubtaskRow = function(id = null, title = '', completed = false) {
+            window.addModalSubtaskRow('edit', id, title, completed);
+        };
+
+        window.addEditModalSideProjectBlock = function() {
+            window.addModalSideProjectBlock('edit');
+        };
+
+        window.addSubtaskToSideProject = function(parentId, btn) {
+            const block = btn.closest('.side-project-block');
+            const container = block.querySelector('.side-project-subtasks');
+            if (container) {
+                container.appendChild(window.createSubtaskRowDOM());
+            }
+        };
+
+        window.addNestedSideProjectToSideProject = function(parentId, btn) {
+            const block = btn.closest('.side-project-block');
+            const container = block.querySelector('.side-project-nested-projects');
+            if (container) {
+                container.appendChild(window.createSideProjectBlockDOM());
+            }
+        };
+
+        window.removeEditSubtaskRow = function(btn, id) {
+            if (id && !String(id).startsWith('temp_')) {
+                window.deletedSubtaskIds.push(parseInt(id));
+            }
+            const row = btn.closest('.edit-subtask-row');
+            if (row) row.remove();
+        };
+
+        window.deleteSideProjectBlock = function(id, btn) {
+            const block = btn.closest('.side-project-block');
+            if (!block) return;
+            
+            // Find all database IDs inside this block recursively and mark them for deletion
+            block.querySelectorAll('[data-subtask-id]').forEach(el => {
+                const subId = el.dataset.subtaskId;
+                if (subId && !String(subId).startsWith('temp_')) {
+                    window.deletedSubtaskIds.push(parseInt(subId));
+                }
+            });
+            block.querySelectorAll('[data-side-project-id]').forEach(el => {
+                const spId = el.dataset.sideProjectId;
+                if (spId && !String(spId).startsWith('temp_')) {
+                    window.deletedSubtaskIds.push(parseInt(spId));
+                }
+            });
+            
+            if (id && !String(id).startsWith('temp_')) {
+                window.deletedSubtaskIds.push(parseInt(id));
+            }
+            block.remove();
+        };
+
+        window.openCompleteConfirm = function(id) {
+            document.getElementById('completeTargetId').value = id;
+            window.openModal('completeConfirmModal');
+        };
+
+        window.confirmComplete = async function() {
+            const id = document.getElementById('completeTargetId').value;
+            window.closeModal('completeConfirmModal');
+            await window.archiveProject(id);
+        };
+
+        window.openDeleteConfirm = function(id) {
+            document.getElementById('deleteTargetId').value = id;
+            window.openModal('deleteConfirmModal');
+        };
+
+        window.openSubModal = function(id) {
+            document.getElementById('currentProjectId').value = id;
+            document.getElementById('subTitle').value = '';
+            window.openModal('subModal');
+        };
+
+        window.toggleSubtasks = function(id) {
+            const row = document.getElementById(`subs-${id}`);
+            const icon = document.getElementById(`icon-${id}`);
+            if (row) {
+                const container = row.querySelector('.subtasks-container');
+                if (container) {
+                    const isExpanded = container.classList.contains('expanded');
+                    if (isExpanded) {
+                        container.classList.remove('expanded');
+                        if (icon) icon.classList.remove('rotate-90');
+                        setTimeout(() => {
+                            if (!container.classList.contains('expanded')) {
+                                row.classList.add('hidden');
+                            }
+                        }, 300);
+                    } else {
+                        row.classList.remove('hidden');
+                        container.offsetHeight; // Force reflow
+                        container.classList.add('expanded');
+                        if (icon) icon.classList.add('rotate-90');
+                    }
+                }
+            }
+        };
+
+        window.toggleSubtaskCollapse = function(id) {
+            const childrenContainer = document.getElementById(`sub-children-${id}`);
+            const icon = document.getElementById(`sub-chevron-${id}`);
+            if (childrenContainer) {
+                const isExpanded = childrenContainer.classList.contains('expanded');
+                if (isExpanded) {
+                    childrenContainer.classList.remove('expanded');
+                    if (icon) icon.classList.remove('rotated');
+                    // Collapse nested containers too
+                    childrenContainer.querySelectorAll('[id^="sub-children-"]').forEach(nested => {
+                        nested.classList.remove('expanded');
+                        const nestedId = nested.id.replace('sub-children-', '');
+                        const nestedIcon = document.getElementById(`sub-chevron-${nestedId}`);
+                        if (nestedIcon) nestedIcon.classList.remove('rotated');
+                    });
+                } else {
+                    childrenContainer.classList.remove('hidden');
+                    childrenContainer.offsetHeight;
+                    childrenContainer.classList.add('expanded');
+                    if (icon) icon.classList.add('rotated');
+                }
+            }
+        };
+
+
+
+        window.updateDeadline = async function(id, date) {
+            await fetch(`/update_deadline/${id}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({due_date: date})
+            });
+        };
+
+        window.filterTasks = function(criteria, btn) {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const c = criteria; 
+            document.querySelectorAll('#projectTableBody > tr[data-task-id]').forEach(row => {
+                const p = (row.dataset.priority || '').toLowerCase();
+                const match = c === 'all' || p === c;
+                row.style.display = match ? '' : 'none';
+                const subs = document.getElementById(`subs-${row.dataset.taskId}`);
+                if (subs && !match) subs.classList.add('hidden');
+            });
+            window.updateOverallProgress();
+        };
+
+        window.liveSearch = function() {
+            const val = document.getElementById('searchInput').value.toLowerCase();
+            document.querySelectorAll('#projectTableBody > tr[data-task-id]').forEach(row => {
+                const match = row.dataset.title.toLowerCase().includes(val);
+                row.style.display = match ? '' : 'none';
+            });
+            window.updateOverallProgress();
+        };
+
+        window.selectedTasks = new Set();
+        window.updateBulkSelection = function() {
+            window.selectedTasks.clear();
+            document.querySelectorAll('.task-checkbox:checked').forEach(cb => window.selectedTasks.add(parseInt(cb.dataset.taskId)));
+            const count = window.selectedTasks.size;
+            document.getElementById('selectedCount').textContent = `${count} selected`;
+            document.getElementById('bulkActionsBar').classList.toggle('hidden', count === 0);
+            document.getElementById('bulkActionBtn').classList.toggle('hidden', count === 0);
+        };
+
+        window.toggleSelectAll = function() {
+            const checked = document.getElementById('selectAll').checked;
+            document.querySelectorAll('.task-checkbox').forEach(cb => cb.checked = checked);
+            window.updateBulkSelection();
+        };
+
+        window.clearBulkSelection = function() {
+            document.querySelectorAll('.task-checkbox').forEach(cb => cb.checked = false);
+            document.getElementById('selectAll').checked = false;
+            window.selectedTasks.clear();
+            window.updateBulkSelection();
+        };
+
+        window.showBulkActions = function() {
+            if (window.selectedTasks.size === 0) showToast('Select tasks first', 'info');
+        };
+
+        window.toggleTemplateCheckbox = function(id) {
+            const cb = document.querySelector(`.template-checkbox[data-id="${id}"]`);
+            if (cb) {
+                cb.checked = !cb.checked;
+                window.updateBatchApplyCount();
+            }
+        };
+
+        window.updateBatchApplyCount = function() {
+            const n = document.querySelectorAll('.template-checkbox:checked').length;
+            const btn = document.getElementById('batchApplyBtn');
+            if (btn) {
+                btn.textContent = `Apply Selected (${n})`;
+                btn.disabled = n === 0;
+                btn.style.background = n > 0 ? 'var(--accent)' : 'rgba(255,255,255,0.05)';
+                btn.style.color = n > 0 ? '#000' : '#666';
+            }
+        };
+
+        window.toggleSelectAllTemplates = function() {
+            const cbs = document.querySelectorAll('.template-checkbox');
+            const all = Array.from(cbs).every(cb => cb.checked);
+            cbs.forEach(cb => cb.checked = !all);
+            window.updateBatchApplyCount();
+        };
+        
+        window.updateDashboardKPIs = async function() {
+            const response = await fetch('/get_dashboard_stats');
+            const data = await response.json();
+            if (data.success) {
+                const progressBar = document.getElementById('overallProgressBar');
+                const progressText = document.getElementById('overallProgressText');
+                if (progressBar) progressBar.style.width = data.overall_progress + '%';
+                if (progressText) progressText.textContent = data.overall_progress + '%';
+                const sidebarCount = document.getElementById('sidebarHabitCount');
+                if (sidebarCount) {
+                    sidebarCount.textContent = `${data.habits_today_done}/${data.habits_today_total} today`;
+                }
+                const headerCounter = document.querySelector('header a[href="/habits"]');
+                if (headerCounter) {
+                    headerCounter.innerHTML = `<i class="fas fa-check-circle mr-2 text-green-500"></i> Habits: ${data.habits_today_done}/${data.habits_today_total}`;
+                }
+            }
+        };
+
+        window.fetchAndAppendTaskRow = async function(id) {
+            const response = await fetch(`/get_task_row/${id}`);
+            const html = await response.text();
+            const temp = document.createElement('tbody');
+            temp.innerHTML = html;
+
+            const emptyState = document.getElementById('emptyState');
+            const tableContainer = document.getElementById('taskTableContainer');
+            const tableBody = document.getElementById('projectTableBody');
+
+            if (emptyState) emptyState.classList.add('hidden');
+            if (tableContainer) tableContainer.classList.remove('hidden');
+
+            if (tableBody) {
+                Array.from(temp.children).forEach(child => tableBody.appendChild(child));
+            }
+            window.updateDashboardKPIs();
+            window.initSortableForProject(id);
+        };
+
+        window.fetchAndUpdateTaskRow = async function(id) {
+            const response = await fetch(`/get_task_row/${id}`);
+            const html = await response.text();
+            const temp = document.createElement('tbody');
+            temp.innerHTML = html;
+            const newTaskRow = temp.children[0];   
+            const newSubsRow = temp.children[1];   
+
+            const oldRow = document.querySelector(`.task-row[data-task-id="${id}"]`);
+            const oldSubs = document.getElementById(`subs-${id}`);
+
+            let wasOpen = false;
+            if (oldSubs) {
+                const oldContainer = oldSubs.querySelector('.subtasks-container');
+                wasOpen = !oldSubs.classList.contains('hidden') && oldContainer && oldContainer.classList.contains('expanded');
+            }
+
+            if (wasOpen && newSubsRow) {
+                newSubsRow.classList.remove('hidden');
+                const newContainer = newSubsRow.querySelector('.subtasks-container');
+                if (newContainer) newContainer.classList.add('expanded');
+            }
+
+            if (oldRow && newTaskRow) oldRow.replaceWith(newTaskRow);
+            if (oldSubs && newSubsRow) oldSubs.replaceWith(newSubsRow);
+            else if (newTaskRow && newSubsRow) newTaskRow.insertAdjacentElement('afterend', newSubsRow);
+
+            window.updateDashboardKPIs();
+            window.initSortableForProject(id);
+        };
+
+        window.removeTaskRow = function(id) {
+            const row = document.querySelector(`.task-row[data-task-id="${id}"]`);
+            const subs = document.getElementById(`subs-${id}`);
+            if (row) {
+                row.classList.add('fade-out');
+                if (subs) subs.classList.add('fade-out');
+                setTimeout(() => {
+                    row.remove();
+                    if (subs) subs.remove();
+                    window.updateDashboardKPIs();
+                    if (document.querySelectorAll('.task-row').length === 0) {
+                        const emptyState = document.getElementById('emptyState');
+                        const tableContainer = document.getElementById('taskTableContainer');
+                        if (emptyState) emptyState.classList.remove('hidden');
+                        if (tableContainer) tableContainer.classList.add('hidden');
+                    }
+                }, 400);
+            }
+        };
+
+        window.initSortableForProject = function(projectId) {
+            const containers = document.querySelectorAll(`.subtasks-container[data-project-id="${projectId}"]`);
+            containers.forEach(container => {
+                if (container.dataset.sortableInitialized) return;
+                container.dataset.sortableInitialized = 'true';
+                
+                new Sortable(container, {
+                    group: `project-${projectId}-parent-${container.dataset.parentId || 'root'}`,
+                    handle: '.drag-handle-sub',
+                    animation: 150,
+                    ghostClass: 'sortable-ghost',
+                    onEnd: async function(e) {
+                        const subId = parseInt(e.item.dataset.subtaskId);
+                        const newParentId = e.to.dataset.parentId ? parseInt(e.to.dataset.parentId) : null;
+                        const newProjectId = parseInt(e.to.dataset.projectId);
+                        
+                        // We find the children rows of the parent container
+                        const siblings = Array.from(e.to.children).filter(el => el.classList.contains('subtask-item-wrapper'));
+                        const newIndex = siblings.indexOf(e.item);
+                        
+                        const response = await fetch(`/move_subtask/${subId}`, {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                new_parent_id: newParentId,
+                                new_project_id: newProjectId,
+                                new_index: newIndex
+                            })
+                        });
+                        const result = await response.json();
+                        if (!result.success) {
+                            showToast(result.message || 'Failed to move item', 'error');
+                            window.fetchAndUpdateTaskRow(newProjectId);
+                        } else {
+                            if (newParentId) {
+                                const targetChildrenDiv = document.getElementById(`sub-children-${newParentId}`);
+                                if (targetChildrenDiv) {
+                                    targetChildrenDiv.classList.remove('hidden');
+                                    const chevron = document.getElementById(`sub-chevron-${newParentId}`);
+                                    if (chevron) {
+                                        chevron.style.transform = 'rotate(0deg)'; // expanded (downward)
+                                    }
+                                }
+                            }
+                            window.initSortableForProject(newProjectId);
+                        }
+                    }
+                });
+            });
+        };
+
+        window.quickAddTask = async function() {
+            const input = document.getElementById('quickCaptureInput');
+            const title = input.value.trim();
+            if (!title) return;
+            const response = await fetch('/add_project', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({title, priority: 'Normal', category: 'General'})
+            });
+            const result = await response.json();
+            if (result.success) {
+                input.value = '';
+                showToast('Task Captured!');
+                window.fetchAndAppendTaskRow(result.id);
+            }
+        };
+
+        window.applySelectedTemplates = async function() {
+            const ids = Array.from(document.querySelectorAll('.template-checkbox:checked')).map(cb => parseInt(cb.dataset.id));
+            if (ids.length === 0) return;
+            const btn = document.getElementById('batchApplyBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Applying...';
+            const response = await fetch('/apply_templates', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({template_ids: ids})
+            });
+            const result = await response.json();
+            if (result.success) {
+                showToast(`${result.count} templates applied`);
+                window.closeModal('templateModal');
+                if (result.project_ids && result.project_ids.length > 0) {
+                    for (const id of result.project_ids) await window.fetchAndAppendTaskRow(id);
+                }
+            }
+            btn.disabled = false;
+            btn.innerText = 'Apply Selected';
+        };
+
+        window.useTemplate = async function(id) {
+            const response = await fetch('/add_project_from_template', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({template_id: id})
+            });
+            const result = await response.json();
+            if (result.success) {
+                showToast('Template applied');
+                window.fetchAndAppendTaskRow(result.id);
+            }
+        };
+
+        window.serializeSubtasksTree = function(prefix) {
+            const subtasks = [];
+            
+            // 1. Gather top-level flat subtasks
+            const flatSubtasksContainer = document.getElementById(`${prefix}ModalSubtasks`);
+            if (flatSubtasksContainer) {
+                flatSubtasksContainer.querySelectorAll('.edit-subtask-row').forEach(row => {
+                    const subId = row.dataset.subtaskId;
+                    const titleInput = row.querySelector('.edit-subtask-input');
+                    if (titleInput && titleInput.value.trim() !== '') {
+                        subtasks.push({
+                            id: subId || null,
+                            title: titleInput.value.trim(),
+                            is_side_project: false,
+                            parent_id: null
+                        });
+                    }
+                });
+            }
+            
+            // 2. Gather recursive side projects tree
+            const sideProjectsContainer = document.getElementById(`${prefix}ModalSideProjects`);
+            if (sideProjectsContainer) {
+                function parseSideProjectBlock(block, parentId) {
+                    const spId = block.dataset.sideProjectId;
+                    const titleInput = block.querySelector('.side-project-title-input');
+                    if (!titleInput || titleInput.value.trim() === '') return;
+                    
+                    subtasks.push({
+                        id: spId || null,
+                        title: titleInput.value.trim(),
+                        is_side_project: true,
+                        parent_id: parentId
+                    });
+                    
+                    // Direct child subtasks of this block
+                    const subContainer = block.querySelector('.side-project-subtasks');
+                    if (subContainer) {
+                        Array.from(subContainer.children).forEach(row => {
+                            if (row.classList.contains('edit-subtask-row')) {
+                                const subId = row.dataset.subtaskId;
+                                const subTitleInput = row.querySelector('.edit-subtask-input');
+                                if (subTitleInput && subTitleInput.value.trim() !== '') {
+                                    subtasks.push({
+                                        id: subId || null,
+                                        title: subTitleInput.value.trim(),
+                                        is_side_project: false,
+                                        parent_id: spId
+                                    });
+                                }
+                            }
+                        });
+                    }
+                    
+                    // Direct child side projects of this block
+                    const nestedContainer = block.querySelector('.side-project-nested-projects');
+                    if (nestedContainer) {
+                        Array.from(nestedContainer.children).forEach(childBlock => {
+                            if (childBlock.classList.contains('side-project-block')) {
+                                parseSideProjectBlock(childBlock, spId);
+                            }
+                        });
+                    }
+                }
+                
+                Array.from(sideProjectsContainer.children).forEach(block => {
+                    if (block.classList.contains('side-project-block')) {
+                        parseSideProjectBlock(block, null);
+                    }
+                });
+            }
+            
+            return subtasks;
+        };
+
+        window.addNewTask = async function() {
+            const btn = document.getElementById('addSubmitBtn');
+            const title = document.getElementById('addTitle').value.trim();
+            if (!title) {
+                showToast('Title is required', 'error');
+                return;
+            }
+            btn.disabled = true;
+            btn.innerText = 'Adding...';
+            const subtasks = window.serializeSubtasksTree('add');
+            const data = {
+                title,
+                due_date: document.getElementById('addDueDate').value,
+                priority: document.getElementById('addPriority').value,
+                category: document.getElementById('addCategory').value || 'General',
+                tags: document.getElementById('addTags').value,
+                notes: document.getElementById('addNotes').value,
+                subtasks
+            };
+            const response = await fetch('/add_project', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            if (result.success) {
+                window.closeModal('addModal');
+                showToast('Task Added');
+                window.fetchAndAppendTaskRow(result.id);
+            }
+            btn.disabled = false;
+            btn.innerText = 'Add Task';
+        };
+
+        window.saveEditTask = async function() {
+            const btn = document.getElementById('editSubmitBtn');
+            const id = document.getElementById('editTaskId').value;
+            const title = document.getElementById('editTitle').value.trim();
+            if (!title) {
+                showToast('Title is required', 'error');
+                return;
+            }
+            btn.disabled = true;
+            btn.innerText = 'Saving...';
+            
+            const subtasks = window.serializeSubtasksTree('edit');
+
+            const data = {
+                title,
+                priority: document.getElementById('editPriority').value,
+                category: document.getElementById('editCategory').value,
+                due_date: document.getElementById('editDueDate').value,
+                notes: document.getElementById('editNotes').value,
+                tags: document.getElementById('editTags').value,
+                subtasks: subtasks,
+                delete_subtasks: window.deletedSubtaskIds
+            };
+            const response = await fetch(`/update_project/${id}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            if (result.success) {
+                window.closeModal('editModal');
+                showToast('Task Updated');
+                window.fetchAndUpdateTaskRow(id);
+            }
+            btn.disabled = false;
+            btn.innerText = 'Save';
+        };
+
+        window.archiveProject = async function(id) {
+            await fetch(`/archive_project/${id}`, {method: 'POST'});
+            showToast('Completed');
+            window.removeTaskRow(id);
+        };
+
+        window.confirmDeleteProject = async function() {
+            const id = document.getElementById('deleteTargetId').value;
+            window.closeModal('deleteConfirmModal');
+            await fetch(`/delete_project/${id}`, {method: 'POST'});
+            showToast('Deleted', 'info');
+            window.removeTaskRow(id);
+        };
+
+        window.submitSubTask = async function() {
+            const id = document.getElementById('currentProjectId').value;
+            const title = document.getElementById('subTitle').value.trim();
+            if (!title) {
+                showToast('Title required', 'error');
+                return;
+            }
+            const response = await fetch(`/add_subtask/${id}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({title})
+            });
+            if (response.ok) {
+                window.closeModal('subModal');
+                showToast('Subtask Added');
+                window.fetchAndUpdateTaskRow(id);
+            }
+        };
+
+        window.recalcProjectProgress = function(taskId) {
+            const subsRow = document.getElementById(`subs-${taskId}`);
+            if (!subsRow) return;
+            const allCheckboxes = subsRow.querySelectorAll('input[type="checkbox"]');
+            const checkedBoxes = subsRow.querySelectorAll('input[type="checkbox"]:checked');
+            const total = allCheckboxes.length;
+            const done = checkedBoxes.length;
+            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+            const taskRow = document.querySelector(`.task-row[data-task-id="${taskId}"]`);
+            if (taskRow) {
+                const progressBar = taskRow.querySelector('.progress-bar');
+                const progressText = taskRow.querySelector('.text-xs.text-gray-600');
+                if (progressBar) progressBar.style.width = pct + '%';
+                if (progressText) {
+                    progressText.textContent = progressText.textContent.replace(/\d+%/, pct + '%');
+                }
+            }
+            window.updateDashboardKPIs();
+        };
+
+        window.toggleSubtask = async function(id) {
+            // Instantly update DOM first for immediate feedback
+            const wrapper = document.querySelector(`.subtask-item-wrapper[data-subtask-id="${id}"]`);
+            const checkbox = wrapper ? wrapper.querySelector('input[type="checkbox"]') : null;
+            const textEl = document.getElementById(`sub-text-${id}`);
+            const isNowChecked = checkbox ? checkbox.checked : false;
+            if (textEl) {
+                if (isNowChecked) {
+                    textEl.classList.add('line-through', 'text-gray-600');
+                    textEl.classList.remove('text-gray-300');
+                } else {
+                    textEl.classList.remove('line-through', 'text-gray-600');
+                    textEl.classList.add('text-gray-300');
+                }
+            }
+            // Find parent task and recalc progress immediately
+            if (wrapper) {
+                const container = wrapper.closest('.subtasks-container[data-project-id]');
+                if (container) window.recalcProjectProgress(container.dataset.projectId);
+            }
+            // Persist to backend
+            await fetch(`/toggle_subtask/${id}`, {method: 'POST'});
+        };
+
+        window.deleteSubtask = async function(id) {
+            const item = document.querySelector(`.subtask-item-wrapper[data-subtask-id="${id}"]`);
+            if (item) {
+                const container = item.closest('.subtasks-container');
+                const taskId = container ? container.dataset.projectId : null;
+                await fetch(`/delete_subtask/${id}`, {method: 'POST'});
+                showToast('Subtask Deleted', 'info');
+                if (taskId) window.fetchAndUpdateTaskRow(taskId);
+            }
+        };
+
+        window.openDeleteSubtaskConfirm = function(id, btn) {
+            document.getElementById('deleteSubtaskTargetId').value = id;
+            window.openModal('deleteSubtaskModal');
+        };
+
+        window.confirmDeleteSubtask = async function() {
+            const id = document.getElementById('deleteSubtaskTargetId').value;
+            const item = document.querySelector(`.subtask-item-wrapper[data-subtask-id="${id}"]`);
+            await fetch(`/delete_subtask/${id}`, {method: 'POST'});
+            window.closeModal('deleteSubtaskModal');
+            showToast('Subtask Deleted', 'info');
+            if (item) {
+                const container = item.closest('.subtasks-container[data-project-id]');
+                const taskId = container ? container.dataset.projectId : null;
+                item.classList.add('fade-out');
+                setTimeout(() => {
+                    item.remove();
+                    if (taskId) window.recalcProjectProgress(taskId);
+                }, 400);
+            }
+        };
+
+        window.openDeleteSideProjectConfirm = function(id, btn) {
+            document.getElementById('deleteSideProjectTargetId').value = id;
+            window.openModal('deleteSideProjectModal');
+        };
+
+        window.confirmDeleteSideProject = async function() {
+            const id = document.getElementById('deleteSideProjectTargetId').value;
+            const item = document.querySelector(`.subtask-item-wrapper[data-subtask-id="${id}"]`);
+            await fetch(`/delete_subtask/${id}`, {method: 'POST'});
+            window.closeModal('deleteSideProjectModal');
+            showToast('Side Project Deleted', 'info');
+            if (item) {
+                const container = item.closest('.subtasks-container[data-project-id]');
+                const taskId = container ? container.dataset.projectId : null;
+                item.classList.add('fade-out');
+                setTimeout(() => {
+                    item.remove();
+                    if (taskId) window.recalcProjectProgress(taskId);
+                }, 400);
+            }
+        };
+
+        window.bulkAction = async function(action) {
+            if (window.selectedTasks.size === 0) return;
+            const ids = Array.from(window.selectedTasks);
+            await fetch('/bulk_action', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({action, task_ids: ids})
+            });
+            showToast('Done!');
+            ids.forEach(id => window.removeTaskRow(id));
+            window.clearBulkSelection();
+        };
+
+        window.startOnboarding = function() {
+            const steps = [
+                {icon: 'fa-hand-peace', title: 'Welcome!', text: "Let's take a quick tour of TaskFlow Noir."},
+                {icon: 'fa-plus-circle', title: 'Add Tasks', text: 'Click "+ New Task" to create your first task.'},
+                {icon: 'fa-grip-vertical', title: 'Drag & Drop', text: 'Use the handle to reorder tasks.'},
+                {icon: 'fa-keyboard', title: 'Shortcuts', text: 'Press ? for keyboard shortcuts.'},
+                {icon: 'fa-rocket', title: "You're Ready!", text: 'Enjoy TaskFlow Noir!'}
+            ];
+            let step = 0;
+            const overlay = document.getElementById('onboardingOverlay');
+            const icon = document.getElementById('onboardingIcon');
+            const title = document.getElementById('onboardingTitle');
+            const text = document.getElementById('onboardingText');
+            const nextBtn = document.getElementById('onboardingNext');
+            const skipBtn = document.getElementById('onboardingSkip');
+            
+            function showStep() {
+                const s = steps[step];
+                icon.className = 'fas ' + s.icon + ' text-5xl mb-4';
+                icon.style.color = 'var(--accent)';
+                title.textContent = s.title;
+                text.textContent = s.text;
+                nextBtn.textContent = step < steps.length - 1 ? 'Next →' : 'Get Started!';
+            }
+            
+            nextBtn.onclick = function() {
+                if (step < steps.length - 1) {
+                    step++;
+                    showStep();
+                } else {
+                    overlay.classList.add('hidden');
+                    localStorage.setItem('onboarding_done', 'true');
+                }
+            };
+            
+            skipBtn.onclick = function() {
+                overlay.classList.add('hidden');
+                localStorage.setItem('onboarding_done', 'true');
+            };
+            
+            overlay.classList.remove('hidden');
+            showStep();
+        };
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            window.updateOverallProgress();
+            if (!localStorage.getItem('onboarding_done')) {
+                window.startOnboarding();
+            }
+            
+            new Sortable(document.getElementById('projectTableBody'), {
+                handle: '.drag-handle',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                filter: 'tr[id^="subs-"]',
+                onEnd: async function(e) {
+                    const item = e.item;
+                    const taskId = item.dataset.taskId;
+                    
+                    // Move the subtask row to follow the main task row
+                    const subsRow = document.getElementById(`subs-${taskId}`);
+                    if (subsRow) {
+                        item.insertAdjacentElement('afterend', subsRow);
+                    }
+                    
+                    // Get the new order of all tasks
+                    const taskIds = [];
+                    document.querySelectorAll('#projectTableBody > tr[data-task-id]').forEach(row => {
+                        const id = parseInt(row.dataset.taskId);
+                        if (!isNaN(id)) taskIds.push(id);
+                    });
+                    
+                    if (taskIds.length === 0) return;
+                    
+                    try {
+                        const response = await fetch('/reorder_tasks', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({task_ids: taskIds})
+                        });
+                        if (!response.ok) throw new Error('Failed to save order');
+                    } catch (err) {
+                        console.error('Reorder error:', err);
+                        showToast('Failed to save order', 'error');
+                    }
+                }
+            });
+            
+            document.querySelectorAll('.subtasks-container').forEach(c => {
+                window.initSortableForProject(c.dataset.projectId);
+            });
+            
+            const tableBody = document.getElementById('projectTableBody');
+            if (tableBody) {
+                tableBody.addEventListener('dblclick', function(e) {
+                    const row = e.target.closest('.task-row');
+                    if (!row) return;
+                    if (e.target.closest('button') || e.target.closest('input') || e.target.closest('.drag-handle') || e.target.closest('.date-wrapper')) return;
+                    
+                    const d = row.dataset;
+                    window.openEditModal(d.taskId, d.title, d.priority, d.category, d.dueDate, d.notes, d.tags);
+                });
+            }
+        });
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'n' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+                e.preventDefault(); 
+                window.openAddModal();
+            }
+            if (e.key === 'N' && e.ctrlKey && e.shiftKey) {
+                e.preventDefault(); 
+                const input = document.getElementById('quickCaptureInput');
+                if (input) input.focus();
+            }
+            if (e.key === 'k' && e.ctrlKey) {
+                e.preventDefault(); 
+                const input = document.getElementById('searchInput');
+                if (input) input.focus();
+            }
+        });
+    </script>
+{% endblock %}

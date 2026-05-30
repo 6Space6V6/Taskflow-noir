@@ -1,0 +1,25 @@
+<div class="habit-card noir-card p-6 rounded-2xl flex items-center justify-between group" data-id="{{habit.id}}" data-group-name="{{habit.group_name}}" style="border-left-color: {{habit.color}}">
+    <div class="flex items-center space-x-4">
+        <div class="drag-handle text-gray-700 hover:text-white transition"><i class="fas fa-grip-vertical"></i></div>
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center glass-panel text-xl" style="color: {{habit.color}}">
+            <i class="{{habit.icon}}"></i>
+        </div>
+        <div>
+            <h4 class="font-bold text-lg text-white">{{habit.name}}</h4>
+            <div class="flex items-center space-x-3 mt-1">
+                <span class="text-xs text-gray-500"><i class="fas fa-fire mr-1 text-orange-500"></i> <span class="streak-val">{{habit.current_streak}}</span>d streak</span>
+                <span class="text-xs text-gray-500"><i class="fas fa-trophy mr-1 text-yellow-500"></i> Best: <span class="best-streak-val">{{habit.best_streak}}</span>d</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="flex items-center space-x-4">
+        <div class="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-2">
+            <button onclick="openEditHabitModal({{habit.id}}, '{{habit.name}}', '{{habit.icon}}', '{{habit.color}}', '{{habit.notes}}', '{{habit.group_name}}')" class="text-gray-600 hover:text-blue-400 p-2"><i class="fas fa-pen"></i></button>
+            <button onclick="deleteHabit({{habit.id}}, '{{habit.name}}')" class="text-gray-600 hover:text-red-500 p-2"><i class="fas fa-trash"></i></button>
+        </div>
+        <div onclick="toggleHabit({{habit.id}}, this)" class="habit-checkbox {{'checked' if habit.is_completed_today else ''}}" style="{% if habit.is_completed_today %}background-color: {{habit.color}}; border-color: transparent;{% endif %}">
+            <i class="fas fa-check"></i>
+        </div>
+    </div>
+</div>
