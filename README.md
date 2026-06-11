@@ -20,22 +20,15 @@
 
 **Version:** 3.1.0 (June 2026)
 
----
-
-# ⚡ Quick Start
-
-## Install & Run
 ````
+
+# 📦 Installation
 
 ```bash
-git clone https://github.com/6Space6V6/Taskflow-noir
-
 cd TaskFlow-Noir
-
 pip install flask flask-sqlalchemy
-
 python app.py
-````
+```
 
 Open:
 
@@ -246,20 +239,6 @@ Midnight, Emerald, Crimson, Royal, Amber, Amethyst, Deep Ocean, Rose, Slate, Moc
 * Font Awesome 6
 
 ---
-
-# 📦 Installation
-
-```bash
-cd TaskFlow-Noir
-pip install flask flask-sqlalchemy
-python app.py
-```
-
-Open:
-
-```text
-http://localhost:3000
-```
 
 ---
 
