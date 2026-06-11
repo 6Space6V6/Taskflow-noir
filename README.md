@@ -25,8 +25,12 @@
 # 📦 Installation
 
 ```bash
+git clone https://github.com/6Space6V6/Taskflow-noir
+
 cd TaskFlow-Noir
+
 pip install flask flask-sqlalchemy
+
 python app.py
 ```
 
