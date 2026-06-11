@@ -321,6 +321,3 @@ MIT License
 > Capture ideas. Organize projects. Execute flawlessly.
 
 ```
-=======
-
->>>>>>> 37beef204751d639666032aaa6819e40982aa144
