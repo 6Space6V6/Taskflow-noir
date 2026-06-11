@@ -267,7 +267,6 @@ Midnight, Emerald, Crimson, Royal, Amber, Amethyst, Deep Ocean, Rose, Slate, Moc
 TaskFlow-Noir/
 ├── app.py
 ├── todo_noir.db
-├── requirements.txt
 ├── README.md
 │
 ├── templates/
@@ -284,9 +283,6 @@ TaskFlow-Noir/
 │       ├── habit_card.html
 │       └── template_card.html
 │
-├── electron/
-│   ├── main.js
-│   └── package.json
 │
 └── Backup/
 ```
@@ -324,7 +320,6 @@ MIT License
 
 > Capture ideas. Organize projects. Execute flawlessly.
 
-```
 ```
 =======
 
