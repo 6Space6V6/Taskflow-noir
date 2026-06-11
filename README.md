@@ -1,128 +1,346 @@
-# **🖤 TaskFlow Noir**
+<<<<<<< HEAD
+````markdown
+████████╗ █████╗ ███████╗██╗  ██╗███████╗██╗ ██████╗ ██╗    ██╗
+╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝██╔════╝██║██╔═══██╗██║    ██║
+   ██║   ███████║███████╗█████╔╝ █████╗  ██║██║   ██║██║ █╗ ██║
+   ██║   ██╔══██║╚════██║██╔═██╗ ██╔══╝  ██║██║   ██║██║███╗██║
+   ██║   ██║  ██║███████║██║  ██╗███████╗██║╚██████╔╝╚███╔███╔╝
+   ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝╚═╝ ╚═════╝  ╚══╝╚══╝
 
-**A minimalist dark-themed task management application**
+# 🖤 TaskFlow Noir
 
-TaskFlow Noir is a sleek, distraction-free productivity hub designed for professionals and creators who thrive in dark mode. It seamlessly combines advanced task management, habit tracking, and comprehensive productivity analytics into a single desktop application.
+> A minimalist dark productivity system for organizing tasks, ideas, habits, and workflows.
 
-## **🚀 Features**
+---
 
-### **📋 Task Management**
+![Version](https://img.shields.io/badge/version-3.1.0-black)
+![Python](https://img.shields.io/badge/Python-3.x-blue)
+![Flask](https://img.shields.io/badge/Flask-Web%20Framework-green)
+![SQLite](https://img.shields.io/badge/Database-SQLite-lightgrey)
+![License](https://img.shields.io/badge/license-MIT-purple)
 
-* **Flexible Architecture:** Organize your life with dedicated spaces for Projects, Subtasks, and independent Side Projects.  
-* **Fluid UI:** Move tasks across stages seamlessly using **Drag & Drop** powered by SortableJS.  
-* **Smart Prioritization:** Classify and filter your tasks based on urgency and importance.
+**Version:** 3.1.0 (June 2026)
 
-### **🧘 Habit Tracker**
+---
 
-* **Consistency Booster:** Track daily habits and maintain your progress with an automated **Streak Counter**.  
-* **Visual Progress:** View your habit history clearly through a dedicated Calendar View.  
-* **Smart Grouping:** Categorize habits into customized groups for better organization.
+# ⚡ Quick Start
 
-### **📊 Reports & Analytics**
+## Install & Run
 
-* **Multi-dimensional Views:** Analyze your productivity with Daily, Weekly, Monthly, and Yearly breakdown reports.  
-* **Data Visualization:** Beautiful and dynamic charts powered by Chart.js to track your completion rates.
+```bash
+cd TaskFlow-Noir
+pip install flask flask-sqlalchemy
+python app.py
+````
 
-### **📄 Templates**
+Open:
 
-* **Pre-made Frameworks:** Jumpstart your day with built-in productivity templates.  
-* **Custom Templates:** Create, save, and reuse your own task structures for recurring workflows.
+```text
+http://localhost:3000
+```
 
-### **🎨 Themes**
+---
 
-* **18 Dark Flavors:** Choose from 18 distinct dark-themed aesthetics split across 5 specialized categories.  
-* **Seamless Sync:** Themes instantly apply across all views, modals, and charts.
+# 🖤 Overview
 
-### **💾 Data & Security**
+TaskFlow Noir is a full local productivity system built with Flask + SQLite, designed for:
 
-* **Full Ownership:** Export and Import your entire database anytime using standard JSON format.  
-* **Peace of Mind:** Integrated Auto-backup system to prevent any data loss.
+* Tasks
+* Projects
+* Brain dumping
+* Habits
+* AI prompts
+* Templates
+* Analytics
+* Backups
 
-## **🛠️ Tech Stack**
+---
 
-TaskFlow Noir is built using a robust, lightweight, and modern technology stack:
+# ✨ Features
 
-* **Backend:** Python (Flask)  
-* **Database:** SQLite (with SQLAlchemy ORM)  
-* **Frontend:** HTML5, Tailwind CSS, Chart.js, SortableJS, Font Awesome  
-* **Desktop Wrapper:** Electron
+## 📋 1. Task Management (Projects)
 
-## **💻 Installation & Setup**
+* Title, category, priority (Urgent/High/Normal)
+* Due dates, notes, tags
+* Subtask system
+* Progress bar (auto-calculated)
+* Overdue detection
+* Drag & drop (SortableJS)
 
-### **Prerequisites**
+---
 
-Make sure you have **Python 3.x** installed on your machine.
+## 🌳 2. Subtasks & Side Projects
 
-### **Step-by-Step Setup**
+### Subtasks
 
-1. **Clone or Download the Repository:**  
-   git clone https://github.com/6Space6V6/Taskflow-noir.git  
-   cd Taskflow-noir
+* Flat checklist tasks
 
-2. **Install the Required Dependencies:**  
-   pip install flask flask-sqlalchemy
+### Side Projects
 
-3. **Run the Application:**  
-   python app.py
+* Nested folders inside projects
+* Can contain:
 
-4. **Access the App:**  
-   Open your preferred web browser and navigate to:  
-   http://localhost:3000
+  * Subtasks
+  * Other side projects
+* Unlimited nesting depth
+* Drag & drop between parents
+* Progress excludes side projects
 
-   *(Note: For the native desktop experience, run the Electron wrapper from the electron/ directory).*
+---
 
-## **📖 Usage Guide**
+## 🧠 3. Brain Dump / Inbox
 
-* 🎛️ **Dashboard:** Your command center. Use it to add daily tasks or quickly jot down thoughts using **Quick Capture**.  
-* 🧭 **Sidebar Navigation:** Quickly switch between Tasks, Habits, Reports, Templates, and Settings.  
-* 🎨 **Changing Themes:** Go to **Settings**, browse through the 5 theme categories, and select one of the 18 dark variations.  
-* 🔄 **Data Management:** Keep your data safe by visiting Settings to trigger a manual JSON export or configure Auto-backup.
+Capture anything instantly.
 
-## **⌨️ Keyboard Shortcuts**
+Each item:
 
-Increase your workflow speed using these built-in global shortcuts:
+* Title
+* Notes
+* Planned date
+* Full JSON task tree
 
-| Shortcut | Action |
-| ----: | ----: |
-| N | New Task |
-| Ctrl \+ K | Search |
-| Ctrl \+ Shift \+ N | Quick Capture |
-| ? | Open Shortcuts Panel |
-| ESC | Close Active Modal |
-| Ctrl \+ D | Go to Dashboard |
+### Views:
 
-## **🎨 Theme Directory**
+* List
+* Grid
+* Boxes (Kanban by date)
+* Calendar
+* Timeline
 
-Explore 18 meticulously designed themes tailored for low-light environments, grouped into **5 distinct categories**:
+### Actions:
 
-1. **Noir Classics:** Ultimate dark modes (Pure Black, Jet Black, Charcoal).  
-2. **Cyberpunk:** Vibrant neon accents against deep dark backdrops.  
-3. **Nordic & Forest:** Muted blues, greens, and cozy cold-atmosphere tones.  
-4. **Deep Ocean:** Rich navy and midnight blue hues.  
-5. **Vintage Dark:** Warm, sepia-tinted dark themes for a retro feel.
+* Convert → Project (keeps hierarchy)
+* Convert → Task (flattens structure)
+* Bulk actions (delete / convert)
+* Drag between date boxes
 
-*Themes can be hot-swapped instantly inside the **Settings** panel without needing a restart.*
+---
 
-## **📂 Project Structure**
+## 👁️ 4. Dashboard Views
 
-taskflow-noir/  
-├── app.py                     \# Main Flask Application Entry Point  
-├── todo\_noir.db               \# SQLite Local Database  
-├── templates/                 \# Frontend HTML Views  
-│   ├── base.html              \# Core Layout & Sidebar  
-│   ├── index.html             \# Main Dashboard & Tasks  
-│   ├── habits.html            \# Habit Tracker & Streaks  
-│   ├── archive.html           \# Completed & Archived Tasks  
-│   ├── reports.html           \# Analytics & Charts  
-│   ├── settings.html          \# Themes & Data Settings  
-│   └── template\_manager.html  \# Custom Templates Framework  
-└── electron/                  \# Desktop Application Wrapper  
-    ├── main.js                \# Electron Main Process  
-    └── package.json           \# Electron Configuration
+* List View (table)
+* Grid View (cards)
+* Kanban View:
 
-## **🤝 Credits**
+  * Urgent
+  * High
+  * Normal
+* Drag changes priority
 
-* **Built & Developed by:** [Space\_V](https://github.com/6Space6V6)  
-* **Icons:** [Font Awesome](https://fontawesome.com)  
-* **Data Visualization:** [Chart.js](https://www.chartjs.org)  
-* **Drag & Drop Functionality:** [SortableJS](https://sortablejs.github.io/Sortable/)
+---
+
+## 🧘 5. Habit Tracker
+
+* Name, icon, color, group
+* Daily completion toggle
+* Streak (current + best)
+* Monthly calendar view
+* Weekly Chart.js analytics
+* Drag & reorder habits
+
+---
+
+## 🤖 6. AI Prompts Manager
+
+* Store prompts
+* Categories:
+
+  * Import
+  * Extract
+  * Organize
+  * Generate
+  * General
+  * Coding
+  * Writing
+* Copy to clipboard
+* Drag reorder
+* Filter by category
+
+---
+
+## 📄 7. Templates
+
+* Save task structures
+* Apply instantly
+* Built-ins:
+
+  * Team Meeting
+  * Grocery Shopping
+
+---
+
+## 🗃️ 8. Archive
+
+* Completed tasks grouped by date
+* Restore tasks
+* Permanent delete
+* Search archive
+
+---
+
+## 📊 9. Reports
+
+* Daily / Weekly / Monthly / Yearly
+* Created vs completed charts
+* Best day analysis
+* Activity tracking
+
+---
+
+## 🎨 10. Themes (18)
+
+Midnight, Emerald, Crimson, Royal, Amber, Amethyst, Deep Ocean, Rose, Slate, Mocha, Nord, Dracula, Synthwave, Everforest, Catppuccin, Solarized, One Dark, B&W
+
+* Instant switching
+* Persistent settings
+
+---
+
+## 💾 11. Data Management
+
+* Export full JSON database:
+  projects, habits, inbox, prompts, templates, settings, etc.
+* Import with duplicate detection
+* Auto daily backups
+* Reset / clear archive
+
+---
+
+## ⚡ 12. Quick Capture Bar
+
+* Floating input bar
+* `Ctrl + Shift + N` focus
+* Enter = create task
+
+---
+
+## ⌨️ Keyboard Shortcuts
+
+| Shortcut         | Action        |
+| ---------------- | ------------- |
+| N                | New Task      |
+| I                | Brain Dump    |
+| Ctrl + K         | Search        |
+| Ctrl + Shift + I | Inbox         |
+| Ctrl + Shift + N | Quick Capture |
+| Ctrl + Z         | Undo          |
+| Ctrl + B         | Sidebar       |
+| ?                | Help          |
+| ESC              | Close         |
+
+---
+
+# 🛠️ Tech Stack
+
+* Python 3.x + Flask
+* SQLite + SQLAlchemy ORM
+* Jinja2 Templates
+* TailwindCSS (CDN)
+* Vanilla JavaScript
+* Chart.js
+* SortableJS
+* Font Awesome 6
+
+---
+
+# 📦 Installation
+
+```bash
+cd TaskFlow-Noir
+pip install flask flask-sqlalchemy
+python app.py
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+---
+
+# 🌐 Routes
+
+* `/` Dashboard
+* `/inbox`
+* `/habits`
+* `/archive`
+* `/reports`
+* `/templates`
+* `/settings`
+* `/ai-prompts`
+* `/export_data`
+* `/import_data`
+* `/api/prompts/*`
+* `/inbox/*`
+
+---
+
+# 📁 Project Structure
+
+```text
+TaskFlow-Noir/
+├── app.py
+├── todo_noir.db
+├── requirements.txt
+├── README.md
+│
+├── templates/
+│   ├── base.html
+│   ├── index.html
+│   ├── inbox.html
+│   ├── habits.html
+│   ├── archive.html
+│   ├── reports.html
+│   ├── settings.html
+│   ├── ai_prompts.html
+│   └── partials/
+│       ├── task_row.html
+│       ├── habit_card.html
+│       └── template_card.html
+│
+├── electron/
+│   ├── main.js
+│   └── package.json
+│
+└── Backup/
+```
+
+---
+
+# 🗺️ Roadmap
+
+* Cloud sync
+* Mobile app
+* Team collaboration
+* Advanced analytics
+* Desktop improvements
+
+---
+
+# 🤝 Contributing
+
+```bash
+git checkout -b feature/new-feature
+git add .
+git commit -m "update"
+git push origin feature/new-feature
+```
+
+---
+
+# 📜 License
+
+MIT License
+
+---
+
+# 🖤 TaskFlow Noir
+
+> Capture ideas. Organize projects. Execute flawlessly.
+
+```
+```
+=======
+
+>>>>>>> 37beef204751d639666032aaa6819e40982aa144
