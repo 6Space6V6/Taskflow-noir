@@ -281,6 +281,13 @@
             <a href="/" data-label="Dashboard" class="flex items-center space-x-3 p-3 transition text-base rounded-xl {{ 'active' if request.path == '/' else 'text-gray-500' }}">
                 <i class="fas fa-th-large w-5 text-center"></i> <span>Dashboard</span>
             </a>
+            <a href="/inbox" data-label="Brain Dump" class="flex items-center space-x-3 p-3 transition text-base rounded-xl {{ 'active' if request.path == '/inbox' else 'text-gray-500' }}">
+                <i class="fas fa-lightbulb w-5 text-center"></i>
+                <div class="flex flex-col leading-tight">
+                    <span>Brain Dump</span>
+                    <span id="inboxCount" class="text-[10px] opacity-60 font-medium"></span>
+                </div>
+            </a>
             <a href="/habits" id="sidebarHabitsLink" data-label="Habits" class="flex items-center space-x-3 p-3 transition text-base rounded-xl {{ 'active' if request.path == '/habits' else 'text-gray-500' }}">
                 <i class="fas fa-dumbbell w-5 text-center"></i>
                 <div class="flex flex-col leading-tight">
@@ -296,6 +303,10 @@
             </a>
             <a href="/templates" data-label="Templates" class="flex items-center space-x-3 p-3 transition text-base rounded-xl {{ 'active' if request.path == '/templates' else 'text-gray-500' }}">
                 <i class="fas fa-layer-group w-5 text-center"></i> <span>Templates</span>
+            </a>
+            <a href="/ai-prompts" data-label="AI Prompts" class="flex items-center space-x-3 p-3 transition text-base rounded-xl {{ 'active' if request.path == '/ai-prompts' else 'text-gray-500' }}">
+                <i class="fas fa-robot w-5 text-center"></i>
+                <span>AI Prompts</span>
             </a>
             <a href="/settings" data-label="Settings" class="flex items-center space-x-3 p-3 transition text-base rounded-xl {{ 'active' if request.path == '/settings' else 'text-gray-500' }}">
                 <i class="fas fa-cog w-5 text-center"></i> <span>Settings</span>
@@ -455,7 +466,28 @@
             }
         });
 
+        window.updateInboxBadge = function() {
+            fetch('/inbox/count')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const countEl = document.getElementById('inboxCount');
+                        if (countEl) {
+                            if (data.count > 0) {
+                                countEl.textContent = data.count + " items";
+                                countEl.style.display = 'inline';
+                            } else {
+                                countEl.textContent = '';
+                                countEl.style.display = 'none';
+                            }
+                        }
+                    }
+                })
+                .catch(err => console.error("Error fetching inbox count:", err));
+        };
+
         document.addEventListener('DOMContentLoaded', function() {
+            window.updateInboxBadge();
             {% if not settings.get('backup_folder') %}
             if (localStorage.getItem('dont_remind_auto_backup') !== 'true') {
                 showToast('⚠️ Please set an Auto-Backup folder in <a href="/settings" class="underline font-black">Settings</a> to keep your data safe! <button onclick="localStorage.setItem(\'dont_remind_auto_backup\', \'true\'); this.parentElement.classList.add(\'opacity-0\')" class="ml-2 text-[10px] bg-white/20 px-2 py-1 rounded">Dismiss</button>', 'info');

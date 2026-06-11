@@ -1,0 +1,411 @@
+{% extends "base.html" %}
+
+{% block title %}AI Prompts - TaskFlow Noir{% endblock %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<style>
+.prompt-card {
+    transition: all 0.3s ease;
+}
+.prompt-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+}
+.prompt-text-preview {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--muted);
+}
+.category-badge {
+    font-size: 0.625rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+}
+.filter-btn.active {
+    background: var(--accent);
+    color: #000;
+}
+.filter-btn:not(.active) {
+    background: transparent;
+    color: var(--muted);
+}
+.filter-btn:not(.active):hover {
+    background: rgba(255,255,255,0.05);
+    color: var(--text);
+}
+.fade-out {
+    opacity: 0;
+    transform: scale(0.95);
+    transition: all 0.3s ease;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto w-full animate-fade-in-up">
+    <header class="flex justify-between items-center mb-8">
+        <div>
+            <h2 class="text-4xl font-bold text-white tracking-tighter">🤖 AI Prompts</h2>
+            <p class="text-gray-600 text-base">Manage your prompt templates for AI assistants</p>
+        </div>
+        <button onclick="openAddPromptModal()" class="px-6 py-3 rounded-full font-bold text-sm transition hover:scale-105 active:scale-95" style="background:var(--accent);color:#000">
+            <i class="fas fa-plus mr-2"></i> Add Prompt
+        </button>
+    </header>
+
+    <!-- Filters -->
+    <div class="flex flex-wrap gap-2 mb-6" id="categoryFilters">
+        <button onclick="filterByCategory('All', this)" class="filter-btn active px-4 py-1.5 rounded-full text-xs font-bold transition">All</button>
+        <button onclick="filterByCategory('Import', this)" class="filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition">Import</button>
+        <button onclick="filterByCategory('Extract', this)" class="filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition">Extract</button>
+        <button onclick="filterByCategory('Organize', this)" class="filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition">Organize</button>
+        <button onclick="filterByCategory('Generate', this)" class="filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition">Generate</button>
+        <button onclick="filterByCategory('General', this)" class="filter-btn px-4 py-1.5 rounded-full text-xs font-bold transition">General</button>
+    </div>
+
+    <!-- Prompts Container -->
+    <div id="promptsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Prompts dynamically loaded here -->
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="hidden glass-panel rounded-2xl p-12 text-center mt-8">
+        <div class="text-5xl mb-4">🤖</div>
+        <h3 class="text-xl font-bold text-white mb-2">No prompts yet</h3>
+        <p class="text-gray-500 mb-6">Create your first AI prompt template to get started.</p>
+        <button onclick="openAddPromptModal()" class="text-accent hover:text-white transition font-medium">
+            <i class="fas fa-plus mr-1"></i> Add New Prompt
+        </button>
+    </div>
+</div>
+
+<!-- Add/Edit Prompt Modal -->
+<div id="promptModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('promptModal', event)">
+    <div class="noir-card p-6 md:p-8 rounded-3xl w-full max-w-2xl" onclick="event.stopPropagation()">
+        <div class="flex justify-between items-center mb-6">
+            <h3 id="modalTitle" class="text-xl font-bold text-white">➕ Add New Prompt</h3>
+            <button onclick="closeModal('promptModal')" class="text-gray-500 hover:text-white text-xl">&times;</button>
+        </div>
+        
+        <input type="hidden" id="promptId">
+        
+        <div class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">Name *</label>
+                    <input type="text" id="promptName" class="w-full bg-black text-white p-3 rounded-xl border border-white/10" placeholder="e.g. Code Review">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">Category</label>
+                    <select id="promptCategory" class="w-full bg-black text-white p-3 rounded-xl border border-white/10 appearance-none">
+                        <option value="General">General</option>
+                        <option value="Import">Import</option>
+                        <option value="Extract">Extract</option>
+                        <option value="Organize">Organize</option>
+                        <option value="Generate">Generate</option>
+                        <option value="Coding">Coding</option>
+                        <option value="Writing">Writing</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">Description</label>
+                <input type="text" id="promptDescription" class="w-full bg-black text-white p-3 rounded-xl border border-white/10" placeholder="Brief explanation of what it does...">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">Prompt Text *</label>
+                <textarea id="promptText" rows="6" class="w-full bg-black text-white p-3 rounded-xl border border-white/10 font-mono text-sm leading-relaxed" placeholder="You are an expert..."></textarea>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 hidden" id="advancedPromptFields">
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">Example Input (Optional)</label>
+                    <textarea id="promptExampleInput" rows="3" class="w-full bg-black text-white p-3 rounded-xl border border-white/10 font-mono text-sm text-gray-400" placeholder="User text goes here..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">Example Output (Optional)</label>
+                    <textarea id="promptExampleOutput" rows="3" class="w-full bg-black text-white p-3 rounded-xl border border-white/10 font-mono text-sm text-gray-400" placeholder="Expected AI response..."></textarea>
+                </div>
+            </div>
+            
+            <div class="text-right">
+                <button type="button" onclick="document.getElementById('advancedPromptFields').classList.toggle('hidden')" class="text-xs text-gray-500 hover:text-white transition">Toggle Advanced Fields</button>
+            </div>
+        </div>
+
+        <div class="mt-8 flex justify-end gap-3">
+            <button onclick="closeModal('promptModal')" class="px-5 py-2.5 rounded-xl text-gray-400 hover:text-white font-medium transition">Cancel</button>
+            <button onclick="savePrompt()" class="bg-accent text-black px-6 py-2.5 rounded-xl font-bold hover:shadow-lg hover:shadow-accent/20 transition">Save Prompt</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deletePromptModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('deletePromptModal', event)">
+    <div class="noir-card p-6 rounded-3xl w-full max-w-sm text-center" onclick="event.stopPropagation()">
+        <div class="w-16 h-16 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center text-2xl mx-auto mb-4 border border-red-500/30">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <h3 class="text-xl font-bold text-white mb-2">Delete Prompt?</h3>
+        <p class="text-gray-400 text-sm mb-6">Are you sure you want to delete "<span id="deletePromptName" class="text-white font-medium"></span>"? This cannot be undone.</p>
+        <input type="hidden" id="deletePromptId">
+        <div class="flex gap-3 justify-center">
+            <button onclick="closeModal('deletePromptModal')" class="flex-1 px-4 py-2 rounded-xl text-gray-400 hover:text-white transition bg-white/5 hover:bg-white/10">Cancel</button>
+            <button onclick="deletePrompt()" class="flex-1 px-4 py-2 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 transition shadow-lg shadow-red-500/20">Delete</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Global variables
+window.allPrompts = [];
+window.currentCategory = 'All';
+
+// Core functions
+window.loadPrompts = async function() {
+    try {
+        const response = await fetch('/api/prompts');
+        window.allPrompts = await response.json();
+        window.filterAndRenderPrompts();
+    } catch(err) {
+        showToast('Error loading prompts', 'error');
+        console.error(err);
+    }
+};
+
+window.filterAndRenderPrompts = function() {
+    let filtered = window.allPrompts;
+    if (window.currentCategory !== 'All') {
+        filtered = window.allPrompts.filter(p => p.category === window.currentCategory);
+    }
+    window.renderPrompts(filtered);
+};
+
+window.renderPrompts = function(prompts) {
+    const container = document.getElementById('promptsContainer');
+    const emptyState = document.getElementById('emptyState');
+    
+    if (!prompts.length) {
+        if (container) container.innerHTML = '';
+        if (emptyState) emptyState.classList.remove('hidden');
+        return;
+    }
+    
+    if (emptyState) emptyState.classList.add('hidden');
+    
+    container.innerHTML = prompts.map(p => `
+        <div class="prompt-card noir-card p-5 rounded-2xl" data-id="${p.id}" data-category="${p.category}">
+            <div class="flex justify-between items-start mb-3">
+                <div class="flex-1">
+                    <div class="flex items-center gap-3 mb-1">
+                        <h3 class="text-lg font-bold text-white">${escapeHtml(p.name)}</h3>
+                        <span class="category-badge">${escapeHtml(p.category)}</span>
+                    </div>
+                    <p class="text-sm text-gray-500">${escapeHtml(p.description || '')}</p>
+                </div>
+                <div class="drag-handle cursor-move text-gray-600 hover:text-white px-2">
+                    <i class="fas fa-grip-vertical"></i>
+                </div>
+            </div>
+            <div class="glass-panel rounded-xl p-3 mb-4 cursor-pointer" onclick="copyPrompt(${p.id})" title="Click to copy prompt">
+                <div class="prompt-text-preview font-mono">${escapeHtml(p.prompt_text.substring(0, 200))}${p.prompt_text.length > 200 ? '...' : ''}</div>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="copyPrompt(${p.id})" class="text-sm text-gray-400 hover:text-accent transition font-medium"><i class="fas fa-copy mr-1"></i> Copy</button>
+                <button onclick="openEditPromptModal(${p.id})" class="text-sm text-gray-400 hover:text-blue-400 transition font-medium"><i class="fas fa-edit mr-1"></i> Edit</button>
+                <button onclick="openDeletePromptModal(${p.id}, '${escapeHtml(p.name).replace(/'/g, "\\'")}')" class="text-sm text-gray-400 hover:text-red-500 transition font-medium ml-auto"><i class="fas fa-trash-alt mr-1"></i></button>
+            </div>
+        </div>
+    `).join('');
+    
+    window.initSortable();
+};
+
+window.copyPrompt = async function(id) {
+    const prompt = window.allPrompts.find(p => p.id === id);
+    if (!prompt) return;
+    
+    try {
+        await navigator.clipboard.writeText(prompt.prompt_text);
+        showToast('Prompt copied to clipboard!');
+    } catch(err) {
+        showToast('Failed to copy', 'error');
+    }
+};
+
+// Modal functions
+window.openAddPromptModal = function() {
+    document.getElementById('modalTitle').textContent = '➕ Add New Prompt';
+    document.getElementById('promptId').value = '';
+    document.getElementById('promptName').value = '';
+    document.getElementById('promptDescription').value = '';
+    document.getElementById('promptCategory').value = 'General';
+    document.getElementById('promptText').value = '';
+    document.getElementById('promptExampleInput').value = '';
+    document.getElementById('promptExampleOutput').value = '';
+    document.getElementById('advancedPromptFields').classList.add('hidden');
+    openModal('promptModal');
+};
+
+window.openEditPromptModal = async function(id) {
+    const prompt = window.allPrompts.find(p => p.id === id);
+    if (!prompt) return;
+    
+    document.getElementById('modalTitle').textContent = '✏️ Edit Prompt';
+    document.getElementById('promptId').value = prompt.id;
+    document.getElementById('promptName').value = prompt.name;
+    document.getElementById('promptDescription').value = prompt.description || '';
+    
+    // Check if category exists in options, if not, set to General
+    const catSelect = document.getElementById('promptCategory');
+    let catExists = Array.from(catSelect.options).some(opt => opt.value === prompt.category);
+    if (!catExists && prompt.category) {
+        const newOpt = new Option(prompt.category, prompt.category);
+        catSelect.add(newOpt);
+    }
+    catSelect.value = prompt.category || 'General';
+    
+    document.getElementById('promptText').value = prompt.prompt_text;
+    document.getElementById('promptExampleInput').value = prompt.example_input || '';
+    document.getElementById('promptExampleOutput').value = prompt.example_output || '';
+    
+    if (prompt.example_input || prompt.example_output) {
+        document.getElementById('advancedPromptFields').classList.remove('hidden');
+    } else {
+        document.getElementById('advancedPromptFields').classList.add('hidden');
+    }
+    
+    openModal('promptModal');
+};
+
+window.savePrompt = async function() {
+    const id = document.getElementById('promptId').value;
+    const data = {
+        name: document.getElementById('promptName').value.trim(),
+        description: document.getElementById('promptDescription').value.trim(),
+        category: document.getElementById('promptCategory').value,
+        prompt_text: document.getElementById('promptText').value,
+        example_input: document.getElementById('promptExampleInput').value,
+        example_output: document.getElementById('promptExampleOutput').value
+    };
+    
+    if (!data.name || !data.prompt_text) {
+        showToast('Name and Prompt Text are required', 'error');
+        return;
+    }
+    
+    try {
+        const url = id ? `/api/prompts/update/${id}` : '/api/prompts/add';
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            closeModal('promptModal');
+            showToast(id ? 'Prompt updated' : 'Prompt added');
+            window.loadPrompts();
+        } else {
+            showToast('Failed to save prompt', 'error');
+        }
+    } catch(err) {
+        showToast('Error saving prompt', 'error');
+    }
+};
+
+window.openDeletePromptModal = function(id, name) {
+    document.getElementById('deletePromptId').value = id;
+    document.getElementById('deletePromptName').textContent = name;
+    openModal('deletePromptModal');
+};
+
+window.deletePrompt = async function() {
+    const id = document.getElementById('deletePromptId').value;
+    try {
+        const response = await fetch(`/api/prompts/delete/${id}`, { method: 'POST' });
+        if (response.ok) {
+            closeModal('deletePromptModal');
+            showToast('Prompt deleted', 'info');
+            window.loadPrompts();
+        } else {
+            showToast('Failed to delete prompt', 'error');
+        }
+    } catch(err) {
+        showToast('Error deleting prompt', 'error');
+    }
+};
+
+// Category filter
+window.filterByCategory = function(category, btn) {
+    window.currentCategory = category;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    window.filterAndRenderPrompts();
+};
+
+// Sortable drag & drop
+window.initSortable = function() {
+    const container = document.getElementById('promptsContainer');
+    if (!container) return;
+    
+    // Only initialize once or recreate if needed
+    if (container._sortable) {
+        container._sortable.destroy();
+    }
+    
+    // Only allow sorting when viewing 'All' to avoid confusing order logic
+    if (window.currentCategory !== 'All') return;
+    
+    container._sortable = new Sortable(container, {
+        handle: '.drag-handle',
+        animation: 200,
+        ghostClass: 'opacity-50',
+        onEnd: async function() {
+            const ids = Array.from(container.querySelectorAll('.prompt-card')).map(card => parseInt(card.dataset.id));
+            try {
+                await fetch('/api/prompts/reorder', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids })
+                });
+                // Update internal array to match new order to prevent jump on category change
+                window.loadPrompts();
+            } catch(err) {
+                console.error('Error reordering', err);
+            }
+        }
+    });
+};
+
+// Helper
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
+        return c;
+    });
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    window.loadPrompts();
+});
+</script>
+{% endblock %}

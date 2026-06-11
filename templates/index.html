@@ -38,6 +38,44 @@
     .subtask-row:hover .subtask-action-btn, .subtask-row:hover .drag-handle-sub { opacity: 1 !important; }
     .subtask-action-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
     .subtask-action-btn:hover { color: var(--accent) !important; transform: scale(1.15); }
+
+    /* View Containers */
+    .view-container { transition: all 0.3s ease; }
+    .view-container.hidden { display: none; }
+
+    /* Grid View */
+    .grid-view-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 1.5rem; }
+    .task-grid-card { background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; padding: 1.25rem; transition: all 0.3s ease; cursor: pointer; }
+    .task-grid-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .task-grid-card .priority-badge { font-size: 0.7rem; padding: 0.2rem 0.6rem; border-radius: 20px; }
+    .task-grid-card .progress-container { margin: 0.75rem 0; }
+    .task-grid-card .subtask-count { font-size: 0.7rem; color: var(--muted); }
+
+    /* Kanban View */
+    .kanban-container { display: flex; gap: 1.5rem; overflow-x: auto; padding-bottom: 1rem; min-height: 500px; }
+    .kanban-column { min-width: 320px; flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; display: flex; flex-direction: column; max-height: calc(100vh - 280px); }
+    .kanban-column-header { padding: 1rem; border-bottom: 1px solid var(--border); font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-radius: 1rem 1rem 0 0; }
+    .kanban-column-header.urgent { background: rgba(239,68,68,0.1); border-top: 2px solid #ef4444; }
+    .kanban-column-header.high { background: rgba(245,158,11,0.1); border-top: 2px solid #f59e0b; }
+    .kanban-column-header.normal { background: rgba(255,255,255,0.05); border-top: 2px solid var(--muted); }
+    .kanban-items { flex: 1; padding: 0.75rem; overflow-y: auto; min-height: 200px; }
+    .kanban-card { background: var(--bg); border: 1px solid var(--border); border-radius: 0.75rem; padding: 0.75rem; margin-bottom: 0.75rem; cursor: grab; transition: all 0.2s ease; }
+    .kanban-card:active { cursor: grabbing; }
+    .kanban-card:hover { border-color: var(--accent); transform: translateX(2px); }
+    .kanban-card-title { font-weight: 600; margin-bottom: 0.5rem; display: block; }
+    .kanban-card-progress { font-size: 0.65rem; color: var(--muted); margin-top: 0.5rem; }
+    .sortable-ghost { opacity: 0.3; background: var(--accent); }
+    .sortable-drag { opacity: 0.5; }
+
+    .view-btn.active { background: var(--accent); color: #000; }
+    .view-btn:not(.active) { background: transparent; color: var(--muted); }
+    .view-btn:not(.active):hover { background: rgba(255,255,255,0.05); color: var(--text); }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .grid-view-container { grid-template-columns: 1fr; }
+        .kanban-column { min-width: 280px; }
+    }
 {% endblock %}
 
 {% block content %}
@@ -55,18 +93,40 @@
     </div>
     {% endif %}
 
-    <header class="flex justify-between items-center mb-10">
+    <header class="mb-6">
         <div>
             <h2 class="text-4xl font-bold text-white tracking-tighter">Active Tasks</h2>
             <p class="text-gray-600 text-base" id="todayDate">{{today_date.strftime('%A, %d %B %Y')}}</p>
         </div>
-        <div class="flex space-x-3">
-            <a href="/habits" class="glass-panel px-4 py-3 rounded-xl text-sm text-gray-400 hover:text-white transition flex items-center"><i class="fas fa-check-circle mr-2 text-green-500"></i> Habits: {{habits_today_done}}/{{habits_today_total}}</a>
-            <button onclick="openTemplateModal()" class="glass-panel px-4 py-3 rounded-xl text-sm text-gray-400 hover:text-white transition"><i class="fas fa-layer-group mr-2"></i> Templates</button>
-            <button id="bulkActionBtn" onclick="showBulkActions()" class="hidden glass-panel px-4 py-3 rounded-xl text-sm text-gray-400 hover:text-white transition"><i class="fas fa-tasks mr-2"></i> Bulk</button>
-            <button onclick="openAddModal()" class="px-8 py-3 rounded-full font-bold text-base transition hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(255,255,255,0.2)]" style="background:var(--accent);color:#000">+ New Task</button>
-        </div>
     </header>
+
+    <!-- View Toggle Bar -->
+    <div class="flex justify-between items-center mb-6">
+        <div class="flex glass-panel p-1 rounded-xl">
+            <button onclick="setDashboardView('list')" data-view="list" class="view-btn px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 active">
+                <i class="fas fa-list"></i> List
+            </button>
+            <button onclick="setDashboardView('grid')" data-view="grid" class="view-btn px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2">
+                <i class="fas fa-th-large"></i> Grid
+            </button>
+            <button onclick="setDashboardView('kanban')" data-view="kanban" class="view-btn px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2">
+                <i class="fas fa-columns"></i> Kanban
+            </button>
+        </div>
+        
+        <div class="flex space-x-3">
+            <a href="/habits" class="glass-panel px-4 py-3 rounded-xl text-sm text-gray-400 hover:text-white transition flex items-center">
+                <i class="fas fa-check-circle mr-2 text-green-500"></i> Habits: {{habits_today_done}}/{{habits_today_total}}
+            </a>
+            <button onclick="openTemplateModal()" class="glass-panel px-4 py-3 rounded-xl text-sm text-gray-400 hover:text-white transition">
+                <i class="fas fa-layer-group mr-2"></i> Templates
+            </button>
+            <button id="bulkActionBtn" onclick="showBulkActions()" class="hidden glass-panel px-4 py-3 rounded-xl text-sm text-gray-400 hover:text-white transition"><i class="fas fa-tasks mr-2"></i> Bulk</button>
+            <button onclick="openAddModal()" class="px-8 py-3 rounded-full font-bold text-base transition hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(255,255,255,0.2)]" style="background:var(--accent);color:#000">
+                + New Task
+            </button>
+        </div>
+    </div>
 
     <div class="flex space-x-4 mb-4">
         <input type="text" id="searchInput" placeholder="Search tasks... (Ctrl+K)" oninput="liveSearch()" class="flex-1 glass-panel rounded-xl px-4 py-3 text-base focus:outline-none focus:border-white/30 transition">
@@ -101,24 +161,59 @@
         <button onclick="clearBulkSelection()" class="text-sm text-gray-500 hover:text-white transition ml-auto">Cancel</button>
     </div>
 
-    <div id="taskTableContainer" class="{% if projects|length == 0 %}hidden{% endif %} noir-card rounded-3xl overflow-hidden shadow-2xl animate-fade-in-up">
-        <div class="table-responsive">
-            <table class="w-full text-left border-collapse">
-                <thead class="glass-panel text-gray-500 uppercase text-xs font-bold">
-                    <tr>
-                        <th class="p-4 w-12 text-center"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()" class="w-4 h-4 accent-white bg-black border-white/10 rounded cursor-pointer"></th>
-                        <th class="p-4">Task Details</th>
-                        <th class="p-4 text-center">Deadline</th>
-                        <th class="p-4 text-center">Priority</th>
-                        <th class="p-4 text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="projectTableBody" class="divide-y divide-white/5">
-                    {% for project in projects %}
-                    {% include 'partials/task_row.html' %}
-                    {% endfor %}
-                </tbody>
-            </table>
+    <!-- List View -->
+    <div id="listView" class="view-container">
+        <div id="taskTableContainer" class="{% if projects|length == 0 %}hidden{% endif %} noir-card rounded-3xl overflow-hidden shadow-2xl animate-fade-in-up">
+            <div class="table-responsive">
+                <table class="w-full text-left border-collapse">
+                    <thead class="glass-panel text-gray-500 uppercase text-xs font-bold">
+                        <tr>
+                            <th class="p-4 w-12 text-center"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()" class="w-4 h-4 accent-white bg-black border-white/10 rounded cursor-pointer"></th>
+                            <th class="p-4">Task Details</th>
+                            <th class="p-4 text-center">Deadline</th>
+                            <th class="p-4 text-center">Priority</th>
+                            <th class="p-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="projectTableBody" class="divide-y divide-white/5">
+                        {% for project in projects %}
+                        {% include 'partials/task_row.html' %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grid View -->
+    <div id="gridView" class="view-container hidden">
+        <div class="grid-view-container" id="gridContainer"></div>
+    </div>
+
+    <!-- Kanban View -->
+    <div id="kanbanView" class="view-container hidden">
+        <div class="kanban-container" id="kanbanContainer">
+            <div class="kanban-column" data-priority="Urgent">
+                <div class="kanban-column-header urgent">
+                    <span><i class="fas fa-exclamation-circle mr-2"></i>Urgent</span>
+                    <span class="task-count" id="urgentCount">0</span>
+                </div>
+                <div class="kanban-items" id="kanbanUrgent"></div>
+            </div>
+            <div class="kanban-column" data-priority="High">
+                <div class="kanban-column-header high">
+                    <span><i class="fas fa-arrow-up mr-2"></i>High</span>
+                    <span class="task-count" id="highCount">0</span>
+                </div>
+                <div class="kanban-items" id="kanbanHigh"></div>
+            </div>
+            <div class="kanban-column" data-priority="Normal">
+                <div class="kanban-column-header normal">
+                    <span><i class="fas fa-minus mr-2"></i>Normal</span>
+                    <span class="task-count" id="normalCount">0</span>
+                </div>
+                <div class="kanban-items" id="kanbanNormal"></div>
+            </div>
         </div>
     </div>
 
@@ -360,6 +455,98 @@
 
 {% block scripts %}
     <script>
+        // Undo System
+        window.lastUndoAction = null;
+        let undoTimeout = null;
+
+        window.storeUndoAction = (type, data) => {
+            if (undoTimeout) clearTimeout(undoTimeout);
+            window.lastUndoAction = { type, data, timestamp: Date.now() };
+            
+            const actionNames = {
+                'archive': 'Project archived',
+                'delete': 'Project deleted',
+                'bulk_archive': 'Projects archived',
+                'bulk_delete': 'Projects deleted'
+            };
+            const msg = actionNames[type] || 'Action completed';
+            window.showToastWithUndo(msg);
+            
+            undoTimeout = setTimeout(() => {
+                window.lastUndoAction = null;
+            }, 5000);
+        };
+
+        window.showToastWithUndo = (message) => {
+            const toast = document.getElementById('toast');
+            if (!toast) return;
+            
+            toast.innerHTML = `✅ ${message} &nbsp;&nbsp; <span style="cursor:pointer;text-decoration:underline" onclick="window.undoLastAction()">Undo (Ctrl+Z)</span> <span style="cursor:pointer;margin-left:8px" onclick="this.parentElement.classList.add('translate-y-24','opacity-0')">✕</span>`;
+            toast.className = 'fixed bottom-10 right-10 px-8 py-4 rounded-xl font-bold transform translate-y-0 opacity-100 transition-all duration-500 z-50 shadow-2xl text-sm uppercase tracking-widest border';
+            toast.style.backgroundColor = 'var(--surface)';
+            toast.style.color = 'var(--text)';
+            toast.style.borderColor = 'var(--border)';
+            
+            setTimeout(() => {
+                if (toast.innerHTML.includes('Undo')) {
+                    toast.classList.add('translate-y-24', 'opacity-0');
+                }
+            }, 5000);
+        };
+
+        window.undoLastAction = async () => {
+            if (!window.lastUndoAction) {
+                showToast('Nothing to undo', 'info');
+                return;
+            }
+            
+            const action = window.lastUndoAction;
+            
+            if (action.type === 'archive') {
+                await fetch(`/restore_project/${action.data.id}`, { method: 'POST' });
+                setTimeout(() => location.reload(), 500);
+            }
+            else if (action.type === 'delete') {
+                if (action.data.projectData) {
+                    await fetch('/add_project', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(action.data.projectData)
+                    });
+                }
+                setTimeout(() => location.reload(), 500);
+            }
+            else if (action.type === 'bulk_archive') {
+                for (const id of action.data.ids) {
+                    await fetch(`/restore_project/${id}`, { method: 'POST' });
+                }
+                setTimeout(() => location.reload(), 500);
+            }
+            else if (action.type === 'bulk_delete') {
+                if (action.data.projectsData) {
+                    for (const pd of action.data.projectsData) {
+                        await fetch('/add_project', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify(pd)
+                        });
+                    }
+                }
+                setTimeout(() => location.reload(), 500);
+            }
+            
+            window.lastUndoAction = null;
+            if (undoTimeout) clearTimeout(undoTimeout);
+        };
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'z' && e.ctrlKey && !e.shiftKey) {
+                e.preventDefault();
+                if (window.lastUndoAction) {
+                    window.undoLastAction();
+                }
+            }
+        });
         window.filterByCategory = function(category, btn) {
             document.querySelectorAll('.cat-filter-btn').forEach(b => {
                 b.classList.remove('bg-white/10', 'text-white', 'active-cat');
@@ -1406,15 +1593,38 @@
 
         window.archiveProject = async function(id) {
             await fetch(`/archive_project/${id}`, {method: 'POST'});
-            showToast('Completed');
+            window.storeUndoAction('archive', { id });
             window.removeTaskRow(id);
         };
 
         window.confirmDeleteProject = async function() {
             const id = document.getElementById('deleteTargetId').value;
             window.closeModal('deleteConfirmModal');
+            
+            const row = document.querySelector(`.task-row[data-task-id="${id}"]`);
+            let projectData = null;
+            if (row) {
+                projectData = {
+                    title: row.dataset.title,
+                    priority: row.dataset.priority,
+                    category: row.dataset.category,
+                    due_date: row.dataset.dueDate,
+                    notes: row.dataset.notes,
+                    tags: row.dataset.tags,
+                    subtasks: []
+                };
+                const subContainer = document.getElementById(`subs-${id}`);
+                if (subContainer) {
+                    const subs = subContainer.querySelectorAll('.subtask-item-wrapper');
+                    subs.forEach(s => {
+                        const titleEl = s.querySelector('.text-gray-300') || s.querySelector('.text-gray-600');
+                        if (titleEl) projectData.subtasks.push(titleEl.textContent.trim());
+                    });
+                }
+            }
+            
             await fetch(`/delete_project/${id}`, {method: 'POST'});
-            showToast('Deleted', 'info');
+            window.storeUndoAction('delete', { id, projectData });
             window.removeTaskRow(id);
         };
 
@@ -1540,12 +1750,46 @@
         window.bulkAction = async function(action) {
             if (window.selectedTasks.size === 0) return;
             const ids = Array.from(window.selectedTasks);
+            
+            let projectsData = [];
+            if (action === 'delete') {
+                ids.forEach(id => {
+                    const row = document.querySelector(`.task-row[data-task-id="${id}"]`);
+                    if (row) {
+                        const pd = {
+                            title: row.dataset.title,
+                            priority: row.dataset.priority,
+                            category: row.dataset.category,
+                            due_date: row.dataset.dueDate,
+                            notes: row.dataset.notes,
+                            tags: row.dataset.tags,
+                            subtasks: []
+                        };
+                        const subContainer = document.getElementById(`subs-${id}`);
+                        if (subContainer) {
+                            const subs = subContainer.querySelectorAll('.subtask-item-wrapper');
+                            subs.forEach(s => {
+                                const titleEl = s.querySelector('.text-gray-300') || s.querySelector('.text-gray-600');
+                                if (titleEl) pd.subtasks.push(titleEl.textContent.trim());
+                            });
+                        }
+                        projectsData.push(pd);
+                    }
+                });
+            }
+            
             await fetch('/bulk_action', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({action, task_ids: ids})
             });
-            showToast('Done!');
+            
+            if (action === 'archive') {
+                window.storeUndoAction('bulk_archive', { ids });
+            } else if (action === 'delete') {
+                window.storeUndoAction('bulk_delete', { projectsData });
+            }
+            
             ids.forEach(id => window.removeTaskRow(id));
             window.clearBulkSelection();
         };
@@ -1671,6 +1915,191 @@
                 const input = document.getElementById('searchInput');
                 if (input) input.focus();
             }
+        });
+        // Dashboard View Management
+        let currentDashboardView = localStorage.getItem('dashboard_view') || 'list';
+
+        function setDashboardView(view) {
+            currentDashboardView = view;
+            localStorage.setItem('dashboard_view', view);
+            
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                if (btn.dataset.view === view) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            document.getElementById('listView').classList.add('hidden');
+            document.getElementById('gridView').classList.add('hidden');
+            document.getElementById('kanbanView').classList.add('hidden');
+            
+            if (view === 'list') {
+                document.getElementById('listView').classList.remove('hidden');
+            } else if (view === 'grid') {
+                document.getElementById('gridView').classList.remove('hidden');
+                renderGridView();
+            } else if (view === 'kanban') {
+                document.getElementById('kanbanView').classList.remove('hidden');
+                renderKanbanView();
+            }
+        }
+
+        function renderGridView() {
+            const container = document.getElementById('gridContainer');
+            const projects = Array.from(document.querySelectorAll('.task-row')).map(row => ({
+                id: row.dataset.taskId,
+                title: row.dataset.title,
+                priority: row.dataset.priority,
+                category: row.dataset.category,
+                dueDate: row.dataset.dueDate,
+                notes: row.dataset.notes,
+                tags: row.dataset.tags,
+                progress: row.querySelector('.progress-bar')?.style.width || '0%'
+            }));
+            
+            container.innerHTML = projects.map(p => `
+                <div class="task-grid-card cursor-pointer" onclick="openEditModal(${p.id}, '${escapeHtml(p.title).replace(/'/g, "\\'")}', '${p.priority}', '${p.category}', '${p.dueDate}', '${escapeHtml(p.notes).replace(/'/g, "\\'")}', '${p.tags}')">
+                    <div class="flex justify-between items-start mb-2">
+                        <h4 class="font-bold text-white">${escapeHtml(p.title)}</h4>
+                        <span class="priority-badge ${p.priority === 'Urgent' ? 'text-red-500 border border-red-500/30 bg-red-500/5' : p.priority === 'High' ? 'text-orange-500 border border-orange-500/30 bg-orange-500/5' : 'text-gray-500 border border-white/10'}">
+                            ${p.priority}
+                        </span>
+                    </div>
+                    ${p.category && p.category !== 'None' && p.category !== 'null' ? `<p class="text-xs text-gray-500 mb-2">${escapeHtml(p.category)}</p>` : ''}
+                    <div class="progress-container">
+                        <div class="progress-bar" style="width:${p.progress}"></div>
+                    </div>
+                    <div class="flex justify-between items-center mt-3">
+                        <span class="text-xs text-gray-600">${p.progress}</span>
+                        <button onclick="event.stopPropagation(); window.openCompleteConfirm(${p.id})" class="text-gray-600 hover:text-green-500 transition text-sm">
+                            <i class="fas fa-check-circle"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderKanbanView() {
+            const projects = Array.from(document.querySelectorAll('.task-row'));
+            
+            const urgent = projects.filter(p => p.dataset.priority === 'Urgent');
+            const high = projects.filter(p => p.dataset.priority === 'High');
+            const normal = projects.filter(p => p.dataset.priority === 'Normal' || !p.dataset.priority || p.dataset.priority === 'None');
+            
+            document.getElementById('urgentCount').textContent = urgent.length;
+            document.getElementById('highCount').textContent = high.length;
+            document.getElementById('normalCount').textContent = normal.length;
+            
+            function createKanbanCard(p) {
+                const progress = p.querySelector('.progress-bar')?.style.width || '0%';
+                let categoryHTML = '';
+                if (p.dataset.category && p.dataset.category !== 'None' && p.dataset.category !== 'null') {
+                    categoryHTML = `<div class="text-xs text-gray-500 mb-1">${escapeHtml(p.dataset.category)}</div>`;
+                }
+                return `
+                    <div class="kanban-card" data-task-id="${p.dataset.taskId}" data-priority="${p.dataset.priority}">
+                        <div class="kanban-card-title">${escapeHtml(p.dataset.title)}</div>
+                        ${categoryHTML}
+                        <div class="kanban-card-progress">
+                            <div class="progress-container">
+                                <div class="progress-bar" style="width:${progress}"></div>
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-2 mt-2">
+                            <button onclick="event.stopPropagation(); openEditModal(${p.dataset.taskId}, this)" class="text-gray-600 hover:text-blue-400 text-xs">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="event.stopPropagation(); window.openCompleteConfirm(${p.dataset.taskId})" class="text-gray-600 hover:text-green-500 text-xs">
+                                <i class="fas fa-check"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('kanbanUrgent').innerHTML = urgent.map(p => createKanbanCard(p)).join('');
+            document.getElementById('kanbanHigh').innerHTML = high.map(p => createKanbanCard(p)).join('');
+            document.getElementById('kanbanNormal').innerHTML = normal.map(p => createKanbanCard(p)).join('');
+            
+            initKanbanSortable();
+        }
+
+        function initKanbanSortable() {
+            const containers = ['kanbanUrgent', 'kanbanHigh', 'kanbanNormal'];
+            
+            containers.forEach(containerId => {
+                const container = document.getElementById(containerId);
+                if (container && !container._sortable) {
+                    container._sortable = new Sortable(container, {
+                        group: 'kanban',
+                        animation: 200,
+                        ghostClass: 'sortable-ghost',
+                        dragClass: 'sortable-drag',
+                        onEnd: async function(evt) {
+                            const taskId = evt.item.dataset.taskId;
+                            const newPriority = evt.to.closest('.kanban-column')?.dataset.priority;
+                            if (taskId && newPriority) {
+                                await fetch(`/update_project/${taskId}`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ priority: newPriority })
+                                });
+                                const originalRow = document.querySelector(`.task-row[data-task-id="${taskId}"]`);
+                                if (originalRow) originalRow.dataset.priority = newPriority;
+                                renderKanbanView();
+                                const listPriorityBadge = document.querySelector(`.task-row[data-task-id="${taskId}"] .priority-badge`);
+                                if (listPriorityBadge) {
+                                    listPriorityBadge.textContent = newPriority.toUpperCase();
+                                    listPriorityBadge.className = `priority-badge text-sm font-bold px-3 py-1 rounded border ${newPriority === 'Urgent' ? 'border-red-500/30 text-red-500 bg-red-500/5' : newPriority === 'High' ? 'border-orange-500/30 text-orange-500 bg-orange-500/5' : 'border-white/10 text-gray-600'}`;
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+
+        if (typeof window.fetchAndAppendTaskRow === 'function') {
+            const originalFetchAndAppendTaskRow = window.fetchAndAppendTaskRow;
+            window.fetchAndAppendTaskRow = async function(id) {
+                await originalFetchAndAppendTaskRow(id);
+                if (currentDashboardView === 'grid') renderGridView();
+                if (currentDashboardView === 'kanban') renderKanbanView();
+            };
+        }
+
+        if (typeof window.fetchAndUpdateTaskRow === 'function') {
+            const originalFetchAndUpdateTaskRow = window.fetchAndUpdateTaskRow;
+            window.fetchAndUpdateTaskRow = async function(id) {
+                await originalFetchAndUpdateTaskRow(id);
+                if (currentDashboardView === 'grid') renderGridView();
+                if (currentDashboardView === 'kanban') renderKanbanView();
+            };
+        }
+
+        if (typeof window.removeTaskRow === 'function') {
+            const originalRemoveTaskRow = window.removeTaskRow;
+            window.removeTaskRow = function(id) {
+                originalRemoveTaskRow(id);
+                if (currentDashboardView === 'grid') renderGridView();
+                if (currentDashboardView === 'kanban') renderKanbanView();
+            };
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            setDashboardView(currentDashboardView);
         });
     </script>
 {% endblock %}

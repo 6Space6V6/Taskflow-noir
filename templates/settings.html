@@ -3,448 +3,381 @@
 {% block title %}Settings | TaskFlow Noir{% endblock %}
 
 {% block style %}
-    .settings-card { background: var(--surface); border: 1px solid var(--border); transition: all 0.3s ease; }
-    .settings-card:hover { border-color: var(--accent); background: var(--surface); }
-    .theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
-    @media (max-width: 480px) {
-        .theme-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        .settings-card { padding: 1.5rem !important; }
-    }
-    @media (max-width: 350px) {
-        .theme-grid { grid-template-columns: 1fr !important; }
-    }
-    .theme-card { cursor: pointer; border-radius: 12px; border: 2px solid transparent; transition: all 0.3s ease; background: var(--bg); overflow: hidden; padding: 4px; }
-    .theme-card:hover { transform: translateY(-2px); border-color: var(--border); }
-    .theme-card.active { border-color: var(--accent); }
-    .preview-bg { height: 30px; border-radius: 8px; position: relative; }
-    .preview-surface { position: absolute; top: 10px; left: 10px; right: 10px; bottom: 4px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); }
-    .preview-accent { position: absolute; bottom: 8px; right: 8px; width: 6px; height: 6px; border-radius: 50%; }
-    .kbd-shortcut { background: var(--border); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; color: var(--text); }
-    .fade-out { opacity: 0; transform: scale(0.9); transition: all 0.4s ease; pointer-events: none; }
-    .quote-item { transition: all 0.3s ease; }
-    .quote-disabled { text-decoration: line-through; color: var(--muted); opacity: 0.5; }
-    .tab-bar {
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        background: var(--surface);
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--border);
-    }
-    .content-area {
-        max-height: 60vh;
-        overflow-y: auto;
-    }
-    /* ── Filter Bar ── */
-    .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; }
-    .filter-chip {
-        padding: 5px 14px; border-radius: 999px; font-size: 11px; font-weight: 700;
-        cursor: pointer; border: 1px solid var(--border); background: transparent;
-        color: var(--muted); transition: all 0.2s ease; white-space: nowrap;
-    }
-    .filter-chip:hover { color: var(--text); border-color: rgba(255,255,255,0.18); }
-    .filter-chip.fc-active { background: rgba(139,92,246,0.18); border-color: rgba(139,92,246,0.45); color: #c4b5fd; }
-    /* ── Accordion ── */
-    .accordion-item { border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 8px; background: rgba(255,255,255,0.02); }
-    .accordion-header { padding: 14px 18px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; transition: background 0.2s; }
-    .accordion-header:hover { background: rgba(255,255,255,0.04); }
-    .accordion-body { display: none; padding: 0 18px 18px; border-top: 1px solid var(--border); padding-top: 16px; }
-    .accordion-item.acc-open .accordion-body { display: block; }
-    .accordion-item.acc-open .accordion-chevron { transform: rotate(180deg); }
-    .accordion-chevron { transition: transform 0.25s ease; font-size: 11px; }
+.settings-card { background: var(--surface); border: 1px solid var(--border); transition: all 0.3s ease; }
+.settings-card:hover { border-color: var(--accent); background: var(--surface); }
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+@media (max-width: 480px) {
+.theme-grid { grid-template-columns: repeat(2, 1fr) !important; }
+.settings-card { padding: 1.5rem !important; }
+}
+@media (max-width: 350px) {
+.theme-grid { grid-template-columns: 1fr !important; }
+}
+.theme-card { cursor: pointer; border-radius: 12px; border: 2px solid transparent; transition: all 0.3s ease;
+background: var(--bg); overflow: hidden; padding: 4px; }
+.theme-card:hover { transform: translateY(-2px); border-color: var(--border); }
+.theme-card.active { border-color: var(--accent); }
+.preview-bg { height: 30px; border-radius: 8px; position: relative; }
+.preview-surface { position: absolute; top: 10px; left: 10px; right: 10px; bottom: 4px; border-radius: 4px; border: 1px
+solid rgba(255,255,255,0.05); }
+.preview-accent { position: absolute; bottom: 8px; right: 8px; width: 6px; height: 6px; border-radius: 50%; }
+.kbd-shortcut { background: var(--border); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size:
+12px; color: var(--text); }
+.fade-out { opacity: 0; transform: scale(0.9); transition: all 0.4s ease; pointer-events: none; }
+.quote-item { transition: all 0.3s ease; }
+.quote-disabled { text-decoration: line-through; color: var(--muted); opacity: 0.5; }
 {% endblock %}
 
 {% block content %}
-    <header class="mb-10">
-        <h2 class="text-4xl font-bold text-white tracking-tighter">Settings</h2>
-        <p class="text-gray-600 text-base">Personalize your TaskFlow experience</p>
-    </header>
+<header class="mb-10">
+    <h2 class="text-4xl font-bold text-white tracking-tighter">Settings</h2>
+    <p class="text-gray-600 text-base">Personalize your TaskFlow experience</p>
+</header>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <!-- Appearance -->
-        <div class="settings-card p-8 rounded-3xl animate-fade-in-up">
-            <h3 class="text-lg font-bold text-white mb-6 flex items-center"><i class="fas fa-palette mr-3 text-gray-600"></i> Appearance</h3>
-            
-            <div class="space-y-8">
-                <div>
-                    <label class="text-xs text-gray-500 uppercase font-bold block mb-4">Theme Library</label>
-                    <div id="themeGrid" class="theme-grid">
-                        <!-- Themes will be injected here -->
-                    </div>
-                </div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- Appearance -->
+    <div class="settings-card p-8 rounded-3xl animate-fade-in-up">
+        <h3 class="text-lg font-bold text-white mb-6 flex items-center"><i
+                class="fas fa-palette mr-3 text-gray-600"></i> Appearance</h3>
 
-                <div>
-                    <label class="text-xs text-gray-500 uppercase font-bold block mb-4">Font Size</label>
-                    <div class="flex space-x-2 glass-panel p-1 rounded-xl w-fit">
-                        <button onclick="updateFontSize('small', this)" class="px-6 py-2 rounded-lg text-sm transition {{'bg-white/10 text-white' if settings.get('font_size') == 'small' else 'text-gray-500'}}">Small</button>
-                        <button onclick="updateFontSize('medium', this)" class="px-6 py-2 rounded-lg text-sm transition {{'bg-white/10 text-white' if settings.get('font_size', 'medium') == 'medium' else 'text-gray-500'}}">Medium</button>
-                        <button onclick="updateFontSize('large', this)" class="px-6 py-2 rounded-lg text-sm transition {{'bg-white/10 text-white' if settings.get('font_size') == 'large' else 'text-gray-500'}}">Large</button>
-                    </div>
+        <div class="space-y-8">
+            <div>
+                <label class="text-xs text-gray-500 uppercase font-bold block mb-4">Theme Library</label>
+                <div id="themeGrid" class="theme-grid">
+                    <!-- Themes will be injected here -->
                 </div>
             </div>
-        </div>
 
-        <!-- Data Management -->
-        <div class="settings-card p-8 rounded-3xl animate-fade-in-up" style="animation-delay: 0.1s">
-            <h3 class="text-lg font-bold text-white mb-6 flex items-center"><i class="fas fa-database mr-3 text-gray-600"></i> Data Management</h3>
-            
-            <div class="space-y-6">
-                <div>
-                    <label class="text-xs text-gray-500 uppercase font-bold block mb-4">Transfer Data</label>
-                    <div class="flex space-x-3">
-                        <a href="/export_data?format=json" class="flex-1 glass-panel p-4 rounded-2xl text-center hover:bg-white/10 transition group">
-                            <i class="fas fa-file-export text-blue-500 mb-2 block text-xl group-hover:scale-110 transition"></i>
-                            <span class="text-sm font-bold">Export JSON</span>
-                        </a>
-                        <button onclick="triggerImport()" class="flex-1 glass-panel p-4 rounded-2xl text-center hover:bg-white/10 transition group">
-                            <i class="fas fa-file-import text-purple-500 mb-2 block text-xl group-hover:scale-110 transition"></i>
-                            <span class="text-sm font-bold">Import JSON</span>
-                        </button>
-                        <input type="file" id="importFileInput" class="hidden" accept=".json" onchange="handleFileSelect(event)">
-                    </div>
-                </div>
-
-                <div class="pt-6 border-t border-white/5">
-                    <label class="text-xs text-gray-500 uppercase font-bold block mb-4">💾 Auto Backup</label>
-                    <div class="space-y-4">
-                        <div>
-                            <div class="flex items-center space-x-3">
-                                <div class="flex-1 bg-white/5 p-4 rounded-xl text-sm text-gray-400 truncate border border-white/5" id="currentBackupFolder">
-                                    {{ settings.get('backup_folder', 'Not set') }}
-                                </div>
-                                <button onclick="chooseBackupFolder(event)" class="glass-panel px-6 py-4 rounded-xl text-sm font-bold hover:bg-white/10 transition flex items-center whitespace-nowrap">
-                                    <i class="fas fa-folder-open mr-2 text-accent"></i> Choose Backup Folder
-                                </button>
-                            </div>
-                            <p class="text-[10px] text-gray-600 mt-2">A daily JSON backup will be created automatically in this folder when the app starts.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="pt-6 border-t border-white/5">
-                    <label class="text-xs text-red-500 uppercase font-bold block mb-4">Danger Zone</label>
-                    <div class="space-y-3">
-                        <button onclick="openClearDataModal('archived')" class="w-full text-left p-4 rounded-2xl bg-red-500/5 border border-red-500/10 hover:border-red-500/30 transition text-sm">
-                            <span class="font-bold text-red-500">Clear Archive</span>
-                            <span class="block text-xs text-gray-600">Permanently delete all completed tasks</span>
-                        </button>
-                        <button onclick="openClearDataModal('all')" class="w-full text-left p-4 rounded-2xl bg-red-500/10 border border-red-500/20 hover:border-red-500/40 transition text-sm">
-                            <span class="font-bold text-red-500">Reset Everything</span>
-                            <span class="block text-xs text-gray-600">Delete all tasks, habits, and activity logs</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Quotes & Motivation -->
-        <div class="settings-card p-8 rounded-3xl animate-fade-in-up" style="animation-delay: 0.2s">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-lg font-bold text-white flex items-center"><i class="fas fa-quote-left mr-3 text-gray-600"></i> Motivation</h3>
-                <button onclick="openAddQuoteModal()" class="text-xs text-gray-500 hover:text-white transition"><i class="fas fa-plus mr-1"></i> Add Quote</button>
-            </div>
-            
-            <div id="quotesContainer" class="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                {% for quote in quotes %}
-                <div class="p-4 glass-panel rounded-2xl flex justify-between items-start group quote-item" data-id="{{quote.id}}">
-                    <div class="flex-1">
-                        <p class="text-sm italic quote-text {{'text-gray-400' if quote.is_active else 'quote-disabled'}}">"{{quote.text}}"</p>
-                    </div>
-                    <div class="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity ml-4">
-                        <button onclick="toggleQuote({{quote.id}}, this)" class="text-xs toggle-btn {{'text-green-500' if quote.is_active else 'text-gray-600'}} hover:scale-110 transition"><i class="fas fa-power-off"></i></button>
-                        <button onclick="deleteQuote({{quote.id}})" class="text-xs text-red-500/50 hover:text-red-500 transition"><i class="fas fa-trash-alt"></i></button>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-
-        <!-- About Noir -->
-        <div class="settings-card p-8 rounded-3xl animate-fade-in-up" style="animation-delay: 0.3s">
-            <h3 class="text-lg font-bold text-white mb-6 flex items-center"><i class="fas fa-info-circle mr-3 text-gray-600"></i> System Info</h3>
-            <div class="space-y-4">
-                <div class="flex justify-between text-sm"><span class="text-gray-500">Version</span><span class="text-white font-mono">2.1.0-Noir</span></div>
-                <div class="flex justify-between text-sm"><span class="text-gray-500">Database</span><span class="text-white font-mono">SQLite 3.x</span></div>
-                <div class="flex justify-between text-sm"><span class="text-gray-500">Build</span><span class="text-white font-mono">Optimized Production</span></div>
-                <div class="pt-4 border-t border-white/5">
-                    <p class="text-[10px] text-gray-700 uppercase tracking-widest leading-loose">
-                        TaskFlow Noir is designed for minimal distraction and maximum focus. No cloud sync. No trackers. Just you and your work.
-                    </p>
+            <div>
+                <label class="text-xs text-gray-500 uppercase font-bold block mb-4">Font Size</label>
+                <div class="flex space-x-2 glass-panel p-1 rounded-xl w-fit">
+                    <button onclick="updateFontSize('small', this)"
+                        class="px-6 py-2 rounded-lg text-sm transition {{'bg-white/10 text-white' if settings.get('font_size') == 'small' else 'text-gray-500'}}">Small</button>
+                    <button onclick="updateFontSize('medium', this)"
+                        class="px-6 py-2 rounded-lg text-sm transition {{'bg-white/10 text-white' if settings.get('font_size', 'medium') == 'medium' else 'text-gray-500'}}">Medium</button>
+                    <button onclick="updateFontSize('large', this)"
+                        class="px-6 py-2 rounded-lg text-sm transition {{'bg-white/10 text-white' if settings.get('font_size') == 'large' else 'text-gray-500'}}">Large</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Modals -->
-    <div id="addQuoteModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('addQuoteModal',event)">
-        <div class="noir-card p-8 rounded-3xl w-full max-w-md animate-fade-in-down">
-            <h3 class="text-2xl font-bold mb-6 text-white">Add Quote</h3>
-            <textarea id="quoteText" rows="3" class="w-full bg-white/5 p-4 rounded-xl text-base mb-6 resize-none" style="border:1px solid var(--border)" placeholder="Enter your motivational quote..."></textarea>
-            <div class="flex justify-end space-x-4">
-                <button onclick="closeModal('addQuoteModal')" class="text-gray-500 font-bold hover:text-white transition">Cancel</button>
-                <button onclick="saveQuote()" class="px-10 py-3 rounded-full font-bold text-base" style="background:var(--accent);color:#000">Save</button>
-            </div>
-        </div>
-    </div>
+    <!-- Data Management -->
+    <div class="settings-card p-8 rounded-3xl animate-fade-in-up" style="animation-delay: 0.1s">
+        <h3 class="text-lg font-bold text-white mb-6 flex items-center"><i
+                class="fas fa-database mr-3 text-gray-600"></i> Data Management</h3>
 
-    <div id="clearDataModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('clearDataModal',event)">
-        <div class="noir-card p-8 rounded-3xl w-full max-w-sm border border-red-500/20 animate-fade-in-down">
-            <div class="text-center mb-6">
-                <i class="fas fa-exclamation-triangle text-red-500 text-5xl mb-4"></i>
-                <h3 class="text-xl font-bold text-white">Critical Action</h3>
-                <div id="clearDataText" class="text-gray-500 text-sm mt-2 text-left space-y-1 bg-white/5 p-4 rounded-xl border border-white/5">
-                    <!-- Text injected by JS -->
+        <div class="space-y-6">
+            <div>
+                <label class="text-xs text-gray-500 uppercase font-bold block mb-4">Transfer Data</label>
+                <div class="flex space-x-3">
+                    <a href="/export_data?format=json"
+                        class="flex-1 glass-panel p-4 rounded-2xl text-center hover:bg-white/10 transition group">
+                        <i
+                            class="fas fa-file-export text-blue-500 mb-2 block text-xl group-hover:scale-110 transition"></i>
+                        <span class="text-sm font-bold">Export JSON</span>
+                    </a>
+                    <button onclick="triggerImport()"
+                        class="flex-1 glass-panel p-4 rounded-2xl text-center hover:bg-white/10 transition group">
+                        <i
+                            class="fas fa-file-import text-purple-500 mb-2 block text-xl group-hover:scale-110 transition"></i>
+                        <span class="text-sm font-bold">Import JSON</span>
+                    </button>
+                    <input type="file" id="importFileInput" class="hidden" accept=".json"
+                        onchange="handleFileSelect(event)">
                 </div>
-                <p class="text-xs text-gray-700 mt-6 uppercase">Type <span class="text-white font-bold">RESET</span> below to confirm</p>
-                <input type="text" id="resetConfirmInput" class="w-full mt-3 bg-red-500/5 border border-red-500/20 p-3 rounded-xl text-center text-red-500 focus:border-red-500/50" placeholder="Type RESET">
-            </div>
-            <input type="hidden" id="clearDataTarget">
-            <div class="flex justify-center space-x-4">
-                <button onclick="closeModal('clearDataModal')" class="text-gray-400 font-bold hover:text-white px-6 py-2 rounded-xl border border-white/10 transition">Cancel</button>
-                <button onclick="confirmClearData()" id="confirmClearBtn" class="bg-red-500/10 text-red-500 border border-red-500/30 px-6 py-2 rounded-xl font-bold transition disabled:opacity-30 disabled:cursor-not-allowed hover:bg-red-500/20" disabled>Wipe Data</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tabbed Import Preview & Edit Modal -->
-    <div id="importConfirmModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutside('importConfirmModal',event)">
-        <div class="noir-card rounded-3xl w-full max-w-5xl border border-purple-500/20 animate-fade-in-down flex flex-col max-h-[90vh] overflow-hidden bg-[var(--surface)] text-[var(--text)]">
-            
-            <!-- Header -->
-            <div class="p-6 border-b border-white/5 flex justify-between items-center bg-black/20">
-                <div class="flex items-center space-x-3">
-                    <i class="fas fa-file-import text-purple-500 text-2xl"></i>
-                    <h3 class="text-2xl font-bold text-white tracking-tighter">📥 Import Preview & Edit</h3>
-                </div>
-                <button onclick="cancelImport()" class="text-gray-500 hover:text-white transition"><i class="fas fa-times text-xl"></i></button>
             </div>
 
-            <!-- Tabs Navigation -->
-            <div class="flex border-b border-white/5 bg-black/10 p-2 overflow-x-auto space-x-2">
-                <button type="button" onclick="switchImportTab(0)" id="importTabBtn-0" class="px-5 py-3 rounded-xl text-sm font-bold transition whitespace-nowrap bg-white/10 text-white">
-                    🆕 New Items (<span id="new-items-count">0</span>)
-                </button>
-                <button type="button" onclick="switchImportTab(1)" id="importTabBtn-1" class="px-5 py-3 rounded-xl text-sm font-bold transition whitespace-nowrap text-gray-500 hover:text-white">
-                    ✏️ Edit Items
-                </button>
-                <button type="button" onclick="switchImportTab(2)" id="importTabBtn-2" class="px-5 py-3 rounded-xl text-sm font-bold transition whitespace-nowrap text-gray-500 hover:text-white">
-                    ⏭️ Duplicates (<span id="duplicate-items-count">0</span>)
-                </button>
-                <button type="button" onclick="switchImportTab(3)" id="importTabBtn-3" class="px-5 py-3 rounded-xl text-sm font-bold transition whitespace-nowrap text-gray-500 hover:text-white">
-                    📊 Summary
-                </button>
-            </div>
-
-            <!-- Loading Indicator -->
-            <div id="importPreviewLoading" class="p-12 text-center flex-1 flex flex-col justify-center items-center">
-                <i class="fas fa-circle-notch fa-spin text-purple-500 text-4xl mb-4"></i>
-                <div class="text-gray-400 text-sm">Analyzing backup file and database mapping...</div>
-            </div>
-
-            <!-- Tab Contents -->
-            <div id="importPreviewContent" class="hidden flex-1 overflow-y-auto p-6 custom-scrollbar space-y-6">
-                
-                <!-- Tab 0: New Items -->
-                <div id="importTabPane-0" class="space-y-4">
-                    <div class="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/5 mb-4">
-                        <span class="text-sm font-semibold text-gray-300">Select items to import:</span>
+            <div class="pt-6 border-t border-white/5">
+                <label class="text-xs text-gray-500 uppercase font-bold block mb-4">💾 Auto Backup</label>
+                <div class="space-y-4">
+                    <div>
                         <div class="flex items-center space-x-3">
-                            <button type="button" onclick="toggleSelectAllImports(true)" class="px-3 py-1.5 rounded-lg text-xs bg-white/10 hover:bg-white/20 transition text-white font-bold">Select All</button>
-                            <button type="button" onclick="toggleSelectAllImports(false)" class="px-3 py-1.5 rounded-lg text-xs bg-white/10 hover:bg-white/20 transition text-gray-400 hover:text-white font-bold">Deselect All</button>
+                            <div class="flex-1 bg-white/5 p-4 rounded-xl text-sm text-gray-400 truncate border border-white/5"
+                                id="currentBackupFolder">
+                                {{ settings.get('backup_folder', 'Not set') }}
+                            </div>
+                            <button onclick="chooseBackupFolder(event)"
+                                class="glass-panel px-6 py-4 rounded-xl text-sm font-bold hover:bg-white/10 transition flex items-center whitespace-nowrap">
+                                <i class="fas fa-folder-open mr-2 text-accent"></i> Choose Backup Folder
+                            </button>
                         </div>
-                    </div>
-                    <div id="newItemsList" class="space-y-3">
-                        <!-- Dynamic list of checked items -->
+                        <p class="text-[10px] text-gray-600 mt-2">A daily JSON backup will be created automatically in
+                            this folder when the app starts.</p>
                     </div>
                 </div>
-
-                <!-- Tab 1: Edit Items -->
-                <div id="importTabPane-1" class="hidden space-y-6">
-                    <div class="bg-purple-500/5 border border-purple-500/10 p-4 rounded-2xl text-xs text-purple-400 flex items-center mb-4">
-                        <i class="fas fa-info-circle mr-3 text-sm"></i>
-                        Edits ONLY affect this import session, NOT the original file or database records.
-                    </div>
-                    <div id="editItemsList" class="space-y-6">
-                        <!-- Dynamic editable cards -->
-                    </div>
-                </div>
-
-                <!-- Tab 2: Duplicates -->
-                <div id="importTabPane-2" class="hidden space-y-4">
-                    <div class="bg-yellow-500/5 border border-yellow-500/10 p-4 rounded-2xl text-xs text-yellow-500 flex items-center mb-4">
-                        <i class="fas fa-exclamation-triangle mr-3 text-sm"></i>
-                        The following items already exist in your workspace and will be SKIPPED during import.
-                    </div>
-                    <div id="duplicateItemsList" class="space-y-4">
-                        <!-- Dynamic skipped items list -->
-                    </div>
-                </div>
-
-                <!-- Tab 3: Summary -->
-                <div id="importTabPane-3" class="hidden space-y-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between">
-                            <span class="text-xs text-gray-500 uppercase font-bold tracking-wider mb-2">Import Choices</span>
-                            <div class="text-3xl font-extrabold text-white" id="summaryCounter">0 of 0 Selected</div>
-                            <span class="text-xs text-gray-600 mt-2">Deselected items are ignored even if edited.</span>
-                        </div>
-                        <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between">
-                            <span class="text-xs text-gray-500 uppercase font-bold tracking-wider mb-2">Modifications</span>
-                            <div class="text-3xl font-extrabold text-purple-400" id="summaryEditedCounter">0 Edited Items</div>
-                            <span class="text-xs text-gray-600 mt-2">"Reset to Original" to restore defaults.</span>
-                        </div>
-                    </div>
-                    
-                    <div class="glass-panel p-6 rounded-2xl space-y-4">
-                        <h4 class="text-sm font-bold text-white uppercase tracking-wider">Breakdown of changes:</h4>
-                        <div id="summaryBreakdown" class="space-y-2 text-sm text-gray-400">
-                            <!-- Dynamic summary rows -->
-                        </div>
-                    </div>
-                </div>
-
             </div>
 
-            <!-- Footer Actions -->
-            <div class="p-6 border-t border-white/5 flex justify-end items-center bg-black/20 space-x-4">
-                <button type="button" onclick="cancelImport()" class="text-gray-400 hover:text-white px-6 py-3 rounded-xl border border-white/10 transition font-bold text-sm">Cancel</button>
-                <button type="button" onclick="confirmImport()" id="confirmImportBtn" class="hidden bg-purple-500 text-black px-8 py-3 rounded-xl font-bold transition hover:bg-purple-400 disabled:opacity-40 disabled:cursor-not-allowed text-sm">Import Selected</button>
+            <div class="pt-6 border-t border-white/5">
+                <label class="text-xs text-red-500 uppercase font-bold block mb-4">Danger Zone</label>
+                <div class="space-y-3">
+                    <button onclick="openClearDataModal('archived')"
+                        class="w-full text-left p-4 rounded-2xl bg-red-500/5 border border-red-500/10 hover:border-red-500/30 transition text-sm">
+                        <span class="font-bold text-red-500">Clear Archive</span>
+                        <span class="block text-xs text-gray-600">Permanently delete all completed tasks</span>
+                    </button>
+                    <button onclick="openClearDataModal('all')"
+                        class="w-full text-left p-4 rounded-2xl bg-red-500/10 border border-red-500/20 hover:border-red-500/40 transition text-sm">
+                        <span class="font-bold text-red-500">Reset Everything</span>
+                        <span class="block text-xs text-gray-600">Delete all tasks, habits, and activity logs</span>
+                    </button>
+                </div>
             </div>
-            
         </div>
     </div>
+
+    <!-- Quotes & Motivation -->
+    <div class="settings-card p-8 rounded-3xl animate-fade-in-up" style="animation-delay: 0.2s">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-lg font-bold text-white flex items-center"><i
+                    class="fas fa-quote-left mr-3 text-gray-600"></i> Motivation</h3>
+            <button onclick="openAddQuoteModal()" class="text-xs text-gray-500 hover:text-white transition"><i
+                    class="fas fa-plus mr-1"></i> Add Quote</button>
+        </div>
+
+        <div id="quotesContainer" class="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+            {% for quote in quotes %}
+            <div class="p-4 glass-panel rounded-2xl flex justify-between items-start group quote-item"
+                data-id="{{quote.id}}">
+                <div class="flex-1">
+                    <p class="text-sm italic quote-text {{'text-gray-400' if quote.is_active else 'quote-disabled'}}">
+                        "{{quote.text}}"</p>
+                </div>
+                <div class="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity ml-4">
+                    <button onclick="toggleQuote({{quote.id}}, this)"
+                        class="text-xs toggle-btn {{'text-green-500' if quote.is_active else 'text-gray-600'}} hover:scale-110 transition"><i
+                            class="fas fa-power-off"></i></button>
+                    <button onclick="deleteQuote({{quote.id}})"
+                        class="text-xs text-red-500/50 hover:text-red-500 transition"><i
+                            class="fas fa-trash-alt"></i></button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- About Noir -->
+    <div class="settings-card p-8 rounded-3xl animate-fade-in-up" style="animation-delay: 0.3s">
+        <h3 class="text-lg font-bold text-white mb-6 flex items-center"><i
+                class="fas fa-info-circle mr-3 text-gray-600"></i> System Info</h3>
+        <div class="space-y-4">
+            <div class="flex justify-between text-sm"><span class="text-gray-500">Version</span><span
+                    class="text-white font-mono">3.1.0-Noir</span></div>
+            <div class="flex justify-between text-sm"><span class="text-gray-500">Database</span><span
+                    class="text-white font-mono">SQLite 3.x</span></div>
+            <div class="flex justify-between text-sm"><span class="text-gray-500">Build</span><span
+                    class="text-white font-mono">Optimized Production</span></div>
+            <div class="pt-4 border-t border-white/5">
+                <p class="text-[10px] text-gray-700 uppercase tracking-widest leading-loose">
+                    TaskFlow Noir is designed for minimal distraction and maximum focus. No cloud sync. No trackers.
+                    Just you and your work.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+<div id="addQuoteModal"
+    class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+    onclick="closeModalOnOutside('addQuoteModal',event)">
+    <div class="noir-card p-8 rounded-3xl w-full max-w-md animate-fade-in-down">
+        <h3 class="text-2xl font-bold mb-6 text-white">Add Quote</h3>
+        <textarea id="quoteText" rows="3" class="w-full bg-white/5 p-4 rounded-xl text-base mb-6 resize-none"
+            style="border:1px solid var(--border)" placeholder="Enter your motivational quote..."></textarea>
+        <div class="flex justify-end space-x-4">
+            <button onclick="closeModal('addQuoteModal')"
+                class="text-gray-500 font-bold hover:text-white transition">Cancel</button>
+            <button onclick="saveQuote()" class="px-10 py-3 rounded-full font-bold text-base"
+                style="background:var(--accent);color:#000">Save</button>
+        </div>
+    </div>
+</div>
+
+<div id="clearDataModal"
+    class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+    onclick="closeModalOnOutside('clearDataModal',event)">
+    <div class="noir-card p-8 rounded-3xl w-full max-w-sm border border-red-500/20 animate-fade-in-down">
+        <div class="text-center mb-6">
+            <i class="fas fa-exclamation-triangle text-red-500 text-5xl mb-4"></i>
+            <h3 class="text-xl font-bold text-white">Critical Action</h3>
+            <div id="clearDataText"
+                class="text-gray-500 text-sm mt-2 text-left space-y-1 bg-white/5 p-4 rounded-xl border border-white/5">
+                <!-- Text injected by JS -->
+            </div>
+            <p class="text-xs text-gray-700 mt-6 uppercase">Type <span class="text-white font-bold">RESET</span> below
+                to confirm</p>
+            <input type="text" id="resetConfirmInput"
+                class="w-full mt-3 bg-red-500/5 border border-red-500/20 p-3 rounded-xl text-center text-red-500 focus:border-red-500/50"
+                placeholder="Type RESET">
+        </div>
+        <input type="hidden" id="clearDataTarget">
+        <div class="flex justify-center space-x-4">
+            <button onclick="closeModal('clearDataModal')"
+                class="text-gray-400 font-bold hover:text-white px-6 py-2 rounded-xl border border-white/10 transition">Cancel</button>
+            <button onclick="confirmClearData()" id="confirmClearBtn"
+                class="bg-red-500/10 text-red-500 border border-red-500/30 px-6 py-2 rounded-xl font-bold transition disabled:opacity-30 disabled:cursor-not-allowed hover:bg-red-500/20"
+                disabled>Wipe Data</button>
+        </div>
+    </div>
+</div>
+
+<div id="importConfirmModal"
+    class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+    onclick="closeModalOnOutside('importConfirmModal',event)">
+    <div class="noir-card p-8 rounded-3xl w-full max-w-md border border-purple-500/20 animate-fade-in-down">
+        <div class="text-center mb-6">
+            <i class="fas fa-file-import text-purple-500 text-5xl mb-4"></i>
+            <h3 class="text-2xl font-bold text-white tracking-tighter">📥 Import Preview</h3>
+            <div id="importPreviewLoading" class="text-gray-500 text-sm mt-4">
+                <i class="fas fa-circle-notch fa-spin text-purple-500 mr-2"></i> Analyzing import file...
+            </div>
+            <div id="importPreviewContent"
+                class="hidden mt-6 text-left space-y-4 bg-white/5 p-6 rounded-2xl border border-white/5">
+                <!-- Preview details or empty-state message dynamically injected -->
+            </div>
+        </div>
+        <div class="flex justify-center space-x-4">
+            <button onclick="cancelImport()"
+                class="text-gray-400 font-bold hover:text-white px-6 py-2 rounded-xl border border-white/10 transition">Cancel</button>
+            <button onclick="confirmImport()" id="confirmImportBtn"
+                class="hidden bg-purple-500/20 text-purple-500 border border-purple-500/30 px-6 py-2 rounded-xl font-bold transition">Confirm
+                Import</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
-    <script>
-        const THEMES = [
-            { name: 'Midnight', bg: '#000000', surface: '#0d0d0d', accent: '#ffffff', text: '#e5e7eb', muted: '#6b7280', border: '#1a1a1a' },
-            { name: 'Emerald', bg: '#06100c', surface: '#0d1a15', accent: '#10b981', text: '#d1fae5', muted: '#64748b', border: '#1a2e26' },
-            { name: 'Crimson', bg: '#120404', surface: '#1a0808', accent: '#ef4444', text: '#fee2e2', muted: '#7f1d1d', border: '#2d0a0a' },
-            { name: 'Royal', bg: '#020617', surface: '#0f172a', accent: '#3b82f6', text: '#dbeafe', muted: '#64748b', border: '#1e293b' },
-            { name: 'Amber', bg: '#0c0802', surface: '#1a140a', accent: '#f59e0b', text: '#fef3c7', muted: '#92400e', border: '#2d2410' },
-            { name: 'Amethyst', bg: '#0a0312', surface: '#1a0c2e', accent: '#8b5cf6', text: '#ede9fe', muted: '#5b21b6', border: '#2d1650' },
-            { name: 'Deep Ocean', bg: '#010a0d', surface: '#051a24', accent: '#06b6d4', text: '#cffafe', muted: '#155e75', border: '#0a2d3d' },
-            { name: 'Rose', bg: '#0d0105', surface: '#1a050d', accent: '#ec4899', text: '#fce7f3', muted: '#9d174d', border: '#3d0a1d' },
-            { name: 'Slate', bg: '#0f172a', surface: '#1e293b', accent: '#94a3b8', text: '#f1f5f9', muted: '#475569', border: '#334155' },
-            { name: 'Mocha', bg: '#0f0a0a', surface: '#1c1414', accent: '#a8a29e', text: '#f5f5f4', muted: '#57534e', border: '#292524' },
-            { name: 'Nord', bg: '#2e3440', surface: '#3b4252', accent: '#88c0d0', text: '#e5e9f0', muted: '#4c566a', border: '#434c5e' },
-            { name: 'Dracula', bg: '#282a36', surface: '#44475a', accent: '#bd93f9', text: '#f8f8f2', muted: '#6272a4', border: '#44475a' },
-            { name: 'Synthwave', bg: '#241b2f', surface: '#2d233c', accent: '#ff79c6', text: '#f8f8f2', muted: '#6272a4', border: '#44475a' },
-            { name: 'Everforest', bg: '#2d353b', surface: '#343f44', accent: '#a7c080', text: '#d3c6aa', muted: '#859289', border: '#3d484d' },
-            { name: 'Catppuccin', bg: '#1e1e2e', surface: '#181825', accent: '#cba6f7', text: '#cdd6f4', muted: '#bac2de', border: '#313244' },
-            { name: 'Solarized', bg: '#002b36', surface: '#073642', accent: '#268bd2', text: '#839496', muted: '#586e75', border: '#073642' },
-            { name: 'One Dark', bg: '#282c34', surface: '#21252b', accent: '#61afef', text: '#abb2bf', muted: '#5c6370', border: '#3e4451' },
-            { name: 'B&W', bg: '#000000', surface: '#111111', accent: '#ffffff', text: '#ffffff', muted: '#888888', border: '#333333' }
-        ];
+<script>
+    const THEMES = [
+        { name: 'Midnight', bg: '#000000', surface: '#0d0d0d', accent: '#ffffff', text: '#e5e7eb', muted: '#6b7280', border: '#1a1a1a' },
+        { name: 'Emerald', bg: '#06100c', surface: '#0d1a15', accent: '#10b981', text: '#d1fae5', muted: '#64748b', border: '#1a2e26' },
+        { name: 'Crimson', bg: '#120404', surface: '#1a0808', accent: '#ef4444', text: '#fee2e2', muted: '#7f1d1d', border: '#2d0a0a' },
+        { name: 'Royal', bg: '#020617', surface: '#0f172a', accent: '#3b82f6', text: '#dbeafe', muted: '#64748b', border: '#1e293b' },
+        { name: 'Amber', bg: '#0c0802', surface: '#1a140a', accent: '#f59e0b', text: '#fef3c7', muted: '#92400e', border: '#2d2410' },
+        { name: 'Amethyst', bg: '#0a0312', surface: '#1a0c2e', accent: '#8b5cf6', text: '#ede9fe', muted: '#5b21b6', border: '#2d1650' },
+        { name: 'Deep Ocean', bg: '#010a0d', surface: '#051a24', accent: '#06b6d4', text: '#cffafe', muted: '#155e75', border: '#0a2d3d' },
+        { name: 'Rose', bg: '#0d0105', surface: '#1a050d', accent: '#ec4899', text: '#fce7f3', muted: '#9d174d', border: '#3d0a1d' },
+        { name: 'Slate', bg: '#0f172a', surface: '#1e293b', accent: '#94a3b8', text: '#f1f5f9', muted: '#475569', border: '#334155' },
+        { name: 'Mocha', bg: '#0f0a0a', surface: '#1c1414', accent: '#a8a29e', text: '#f5f5f4', muted: '#57534e', border: '#292524' },
+        { name: 'Nord', bg: '#2e3440', surface: '#3b4252', accent: '#88c0d0', text: '#e5e9f0', muted: '#4c566a', border: '#434c5e' },
+        { name: 'Dracula', bg: '#282a36', surface: '#44475a', accent: '#bd93f9', text: '#f8f8f2', muted: '#6272a4', border: '#44475a' },
+        { name: 'Synthwave', bg: '#241b2f', surface: '#2d233c', accent: '#ff79c6', text: '#f8f8f2', muted: '#6272a4', border: '#44475a' },
+        { name: 'Everforest', bg: '#2d353b', surface: '#343f44', accent: '#a7c080', text: '#d3c6aa', muted: '#859289', border: '#3d484d' },
+        { name: 'Catppuccin', bg: '#1e1e2e', surface: '#181825', accent: '#cba6f7', text: '#cdd6f4', muted: '#bac2de', border: '#313244' },
+        { name: 'Solarized', bg: '#002b36', surface: '#073642', accent: '#268bd2', text: '#839496', muted: '#586e75', border: '#073642' },
+        { name: 'One Dark', bg: '#282c34', surface: '#21252b', accent: '#61afef', text: '#abb2bf', muted: '#5c6370', border: '#3e4451' },
+        { name: 'B&W', bg: '#000000', surface: '#111111', accent: '#ffffff', text: '#ffffff', muted: '#888888', border: '#333333' }
+    ];
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const grid = document.getElementById('themeGrid');
-            const currentThemeName = '{{settings.get("theme_name", "Midnight")}}';
-            
-            THEMES.forEach(t => {
-                const card = document.createElement('div');
-                card.className = `theme-card ${t.name === currentThemeName ? 'active' : ''}`;
-                card.onclick = (e) => window.applyFullTheme(t, card);
-                card.innerHTML = `
+    document.addEventListener('DOMContentLoaded', () => {
+        const grid = document.getElementById('themeGrid');
+        const currentThemeName = '{{settings.get("theme_name", "Midnight")}}';
+
+        THEMES.forEach(t => {
+            const card = document.createElement('div');
+            card.className = `theme-card ${t.name === currentThemeName ? 'active' : ''}`;
+            card.onclick = (e) => window.applyFullTheme(t, card);
+            card.innerHTML = `
                     <div class="preview-bg" style="background:${t.bg}">
                         <div class="preview-surface" style="background:${t.surface}"></div>
                         <div class="preview-accent" style="background:${t.accent}"></div>
                     </div>
                     <div class="text-[10px] text-center mt-1 text-gray-500 uppercase font-bold">${t.name}</div>
                 `;
-                if (grid) grid.appendChild(card);
-            });
+            if (grid) grid.appendChild(card);
+        });
+    });
+
+    window.applyFullTheme = async function (theme, el) {
+        document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('active'));
+        if (el) el.classList.add('active');
+
+        const r = document.documentElement;
+        r.style.setProperty('--bg', theme.bg);
+        r.style.setProperty('--surface', theme.surface);
+        r.style.setProperty('--accent', theme.accent);
+        r.style.setProperty('--text', theme.text);
+        r.style.setProperty('--muted', theme.muted);
+        r.style.setProperty('--border', theme.border);
+
+        const data = {
+            theme_name: theme.name,
+            theme_bg: theme.bg,
+            theme_surface: theme.surface,
+            theme_accent: theme.accent,
+            theme_text: theme.text,
+            theme_muted: theme.muted,
+            theme_border: theme.border
+        };
+
+        await fetch('/save_settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
         });
 
-        window.applyFullTheme = async function(theme, el) {
-            document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('active'));
-            if (el) el.classList.add('active');
-            
-            const r = document.documentElement;
-            r.style.setProperty('--bg', theme.bg);
-            r.style.setProperty('--surface', theme.surface);
-            r.style.setProperty('--accent', theme.accent);
-            r.style.setProperty('--text', theme.text);
-            r.style.setProperty('--muted', theme.muted);
-            r.style.setProperty('--border', theme.border);
-            
-            const data = {
-                theme_name: theme.name,
-                theme_bg: theme.bg,
-                theme_surface: theme.surface,
-                theme_accent: theme.accent,
-                theme_text: theme.text,
-                theme_muted: theme.muted,
-                theme_border: theme.border
-            };
-            
-            await fetch('/save_settings', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
-            });
-            
-            localStorage.setItem('tf_theme', JSON.stringify({
-                bg: theme.bg,
-                surface: theme.surface,
-                accent: theme.accent,
-                text: theme.text,
-                muted: theme.muted,
-                border: theme.border
-            }));
-            
-            showToast(`${theme.name} Theme Applied`);
-        };
+        localStorage.setItem('tf_theme', JSON.stringify({
+            bg: theme.bg,
+            surface: theme.surface,
+            accent: theme.accent,
+            text: theme.text,
+            muted: theme.muted,
+            border: theme.border
+        }));
 
-        window.updateFontSize = async function(size, btn) {
-            document.querySelectorAll('button[onclick*="updateFontSize"]').forEach(b => {
-                b.classList.remove('bg-white/10', 'text-white');
-                b.classList.add('text-gray-500');
-            });
-            if (btn) {
-                btn.classList.add('bg-white/10', 'text-white');
-                btn.classList.remove('text-gray-500');
-            }
+        showToast(`${theme.name} Theme Applied`);
+    };
 
-            if(size === 'small') document.documentElement.style.fontSize = '14px';
-            else if(size === 'large') document.documentElement.style.fontSize = '18px';
-            else document.documentElement.style.fontSize = '16px';
+    window.updateFontSize = async function (size, btn) {
+        document.querySelectorAll('button[onclick*="updateFontSize"]').forEach(b => {
+            b.classList.remove('bg-white/10', 'text-white');
+            b.classList.add('text-gray-500');
+        });
+        if (btn) {
+            btn.classList.add('bg-white/10', 'text-white');
+            btn.classList.remove('text-gray-500');
+        }
 
-            localStorage.setItem('taskflow_font_size', size);
-            await fetch('/save_settings', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({font_size: size})
-            });
-            showToast('Font Size Updated');
-        };
+        if (size === 'small') document.documentElement.style.fontSize = '14px';
+        else if (size === 'large') document.documentElement.style.fontSize = '18px';
+        else document.documentElement.style.fontSize = '16px';
 
-        window.openAddQuoteModal = function() {
-            document.getElementById('quoteText').value = '';
-            window.openModal('addQuoteModal');
-        };
+        localStorage.setItem('taskflow_font_size', size);
+        await fetch('/save_settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ font_size: size })
+        });
+        showToast('Font Size Updated');
+    };
 
-        window.saveQuote = async function() {
-            const text = document.getElementById('quoteText').value.trim();
-            if(!text) return;
-            const response = await fetch('/add_quote', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({text})
-            });
-            const result = await response.json();
-            if(response.ok) {
-                window.closeModal('addQuoteModal');
-                showToast('Quote Added');
-                // Append the new quote to the list without reloading
-                const quoteId = result.id || Date.now();
-                const quotesContainer = document.getElementById('quotesContainer');
-                if (quotesContainer) {
-                    const div = document.createElement('div');
-                    div.className = 'p-4 glass-panel rounded-2xl flex justify-between items-start group quote-item animate-fade-in-down';
-                    div.dataset.id = quoteId;
-                    div.innerHTML = `
+    window.openAddQuoteModal = function () {
+        document.getElementById('quoteText').value = '';
+        window.openModal('addQuoteModal');
+    };
+
+    window.saveQuote = async function () {
+        const text = document.getElementById('quoteText').value.trim();
+        if (!text) return;
+        const response = await fetch('/add_quote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+        });
+        const result = await response.json();
+        if (response.ok) {
+            window.closeModal('addQuoteModal');
+            showToast('Quote Added');
+            // Append the new quote to the list without reloading
+            const quoteId = result.id || Date.now();
+            const quotesContainer = document.getElementById('quotesContainer');
+            if (quotesContainer) {
+                const div = document.createElement('div');
+                div.className = 'p-4 glass-panel rounded-2xl flex justify-between items-start group quote-item animate-fade-in-down';
+                div.dataset.id = quoteId;
+                div.innerHTML = `
                         <div class="flex-1">
                             <p class="text-sm italic quote-text text-gray-400">"${text}"</p>
                         </div>
@@ -453,49 +386,49 @@
                             <button onclick="deleteQuote(${quoteId})" class="text-xs text-red-500/50 hover:text-red-500 transition"><i class="fas fa-trash-alt"></i></button>
                         </div>
                     `;
-                    quotesContainer.appendChild(div);
-                }
+                quotesContainer.appendChild(div);
             }
-        };
+        }
+    };
 
-        window.toggleQuote = async function(id, btn) {
-            const response = await fetch(`/toggle_quote/${id}`, {method: 'POST'});
-            if(response.ok) {
-                const item = btn.closest('.quote-item');
-                const text = item.querySelector('.quote-text');
-                const isActive = btn.classList.contains('text-green-500');
-                if(isActive){
-                    btn.classList.replace('text-green-500', 'text-gray-600');
-                    text.classList.add('quote-disabled');
-                    text.classList.remove('text-gray-400');
-                } else {
-                    btn.classList.replace('text-gray-600', 'text-green-500');
-                    text.classList.remove('quote-disabled');
-                    text.classList.add('text-gray-400');
-                }
+    window.toggleQuote = async function (id, btn) {
+        const response = await fetch(`/toggle_quote/${id}`, { method: 'POST' });
+        if (response.ok) {
+            const item = btn.closest('.quote-item');
+            const text = item.querySelector('.quote-text');
+            const isActive = btn.classList.contains('text-green-500');
+            if (isActive) {
+                btn.classList.replace('text-green-500', 'text-gray-600');
+                text.classList.add('quote-disabled');
+                text.classList.remove('text-gray-400');
+            } else {
+                btn.classList.replace('text-gray-600', 'text-green-500');
+                text.classList.remove('quote-disabled');
+                text.classList.add('text-gray-400');
             }
-        };
+        }
+    };
 
-        window.deleteQuote = async function(id) {
-            const response = await fetch(`/delete_quote/${id}`, {method: 'POST'});
-            if(response.ok) {
-                showToast('Quote Deleted', 'info');
-                const item = document.querySelector(`.quote-item[data-id="${id}"]`);
-                if(item){
-                    item.classList.add('fade-out');
-                    setTimeout(() => item.remove(), 400);
-                }
+    window.deleteQuote = async function (id) {
+        const response = await fetch(`/delete_quote/${id}`, { method: 'POST' });
+        if (response.ok) {
+            showToast('Quote Deleted', 'info');
+            const item = document.querySelector(`.quote-item[data-id="${id}"]`);
+            if (item) {
+                item.classList.add('fade-out');
+                setTimeout(() => item.remove(), 400);
             }
-        };
+        }
+    };
 
-        window.openClearDataModal = function(target) {
-            document.getElementById('clearDataTarget').value = target;
-            document.getElementById('resetConfirmInput').value = '';
-            document.getElementById('confirmClearBtn').disabled = true;
-            
-            const textEl = document.getElementById('clearDataText');
-            if (target === 'all') {
-                textEl.innerHTML = `
+    window.openClearDataModal = function (target) {
+        document.getElementById('clearDataTarget').value = target;
+        document.getElementById('resetConfirmInput').value = '';
+        document.getElementById('confirmClearBtn').disabled = true;
+
+        const textEl = document.getElementById('clearDataText');
+        if (target === 'all') {
+            textEl.innerHTML = `
                     <p class="font-bold text-white mb-2">This will permanently delete:</p>
                     <ul class="list-disc list-inside text-xs space-y-1">
                         <li>All tasks and subtasks</li>
@@ -505,745 +438,184 @@
                     </ul>
                     <p class="mt-3 text-[10px] text-gray-600">Your settings and themes will be preserved.</p>
                 `;
-            } else {
-                textEl.innerHTML = `
+        } else {
+            textEl.innerHTML = `
                     <p class="text-white font-bold mb-1">Delete Archived Tasks?</p>
                     <p class="text-xs">This will permanently delete all tasks currently in the archive. Active tasks and habits will not be affected.</p>
                 `;
-            }
-            window.openModal('clearDataModal');
-        };
-
-        const resetInput = document.getElementById('resetConfirmInput');
-        if (resetInput) {
-            resetInput.oninput = function() {
-                document.getElementById('confirmClearBtn').disabled = this.value !== 'RESET';
-            };
         }
+        window.openModal('clearDataModal');
+    };
 
-        window.confirmClearData = async function() {
-            const target = document.getElementById('clearDataTarget').value;
-            const response = await fetch('/clear_all_data', {
+    const resetInput = document.getElementById('resetConfirmInput');
+    if (resetInput) {
+        resetInput.oninput = function () {
+            document.getElementById('confirmClearBtn').disabled = this.value !== 'RESET';
+        };
+    }
+
+    window.confirmClearData = async function () {
+        const target = document.getElementById('clearDataTarget').value;
+        const response = await fetch('/clear_all_data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target })
+        });
+        if (response.ok) {
+            showToast('Data Cleared', 'info');
+            setTimeout(() => location.href = '/', 800);
+        }
+    };
+
+    window.triggerImport = function () {
+        document.getElementById('importFileInput').click();
+    };
+
+    window.handleFileSelect = async function (event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        window.selectedImportFile = file;
+
+        // Reset modal state to loading
+        document.getElementById('importPreviewLoading').classList.remove('hidden');
+        document.getElementById('importPreviewContent').classList.add('hidden');
+        document.getElementById('importPreviewContent').innerHTML = '';
+        document.getElementById('confirmImportBtn').classList.add('hidden');
+        document.getElementById('confirmImportBtn').disabled = false;
+        document.getElementById('confirmImportBtn').innerText = 'Confirm Import';
+
+        window.openModal('importConfirmModal');
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/import_preview', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({target})
+                body: formData
             });
-            if(response.ok) {
-                showToast('Data Cleared', 'info');
-                setTimeout(() => location.href = '/', 800);
-            }
-        };
+            const result = await response.json();
 
-        window.triggerImport = function() {
-            document.getElementById('importFileInput').click();
-        };
+            document.getElementById('importPreviewLoading').classList.add('hidden');
 
-        // Tabbed Preview & Edit System States
-        window.selectedImportFile = null;
-        window.originalNewItems = [];
-        window.editedNewItems = [];
-        window.selectedImportIds = new Set();
-        window.duplicateItems = [];
-        window.currentImportTab = 0;
-        window.currentNewFilter = 'all';
-        window.currentEditFilter = 'all';
-        window.currentEditAccordion = null;
+            if (result.success) {
+                const c = result.counts;
+                const totalToAdd = c.projects_add + c.subtasks_add + c.habits_add + c.templates_add;
 
-        window.handleFileSelect = async function(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            window.selectedImportFile = file;
-
-            // Reset modal state
-            window.currentNewFilter = 'all';
-            window.currentEditFilter = 'all';
-            window.currentEditAccordion = null;
-            document.getElementById('importPreviewLoading').classList.remove('hidden');
-            document.getElementById('importPreviewContent').classList.add('hidden');
-            document.getElementById('confirmImportBtn').classList.add('hidden');
-            document.getElementById('confirmImportBtn').disabled = false;
-            document.getElementById('confirmImportBtn').innerText = 'Import Selected';
-
-            window.openModal('importConfirmModal');
-            switchImportTab(0);
-
-            const formData = new FormData();
-            formData.append('file', file);
-
-            try {
-                const response = await fetch('/import_preview', {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await response.json();
-
-                document.getElementById('importPreviewLoading').classList.add('hidden');
-
-                if (result.success) {
-                    window.originalNewItems = result.new_items || [];
-                    window.editedNewItems = JSON.parse(JSON.stringify(result.new_items || []));
-                    window.selectedImportIds = new Set(window.originalNewItems.map(x => x.import_id));
-                    window.duplicateItems = result.duplicate_items || [];
-
-                    document.getElementById('new-items-count').textContent = window.originalNewItems.length;
-                    document.getElementById('duplicate-items-count').textContent = window.duplicateItems.length;
-
-                    renderNewItemsTab();
-                    renderEditItemsTab();
-                    renderDuplicateItemsTab();
-                    renderSummaryTab();
-
-                    document.getElementById('importPreviewContent').classList.remove('hidden');
-                    document.getElementById('confirmImportBtn').classList.remove('hidden');
+                let htmlContent = '';
+                if (totalToAdd === 0) {
+                    htmlContent = `
+                            <div class="text-center p-4">
+                                <i class="fas fa-check-circle text-green-500 text-3xl mb-3 block"></i>
+                                <p class="text-white font-bold">All data is already up to date!</p>
+                                <p class="text-gray-500 text-xs mt-2">No new projects, subtasks, habits, or templates to import.</p>
+                            </div>
+                        `;
+                    document.getElementById('confirmImportBtn').classList.add('hidden');
                 } else {
-                    showToast(result.message || 'Failed to parse file', 'error');
-                    window.closeModal('importConfirmModal');
+                    htmlContent = `
+                            <p class="text-gray-400 text-xs uppercase font-bold mb-4 tracking-wider">The following will be imported:</p>
+                            <ul class="space-y-3 text-sm">
+                                <li class="flex items-center text-white"><span class="mr-3 text-lg">📋</span> <span class="font-semibold">${c.projects_add}</span> new project${c.projects_add !== 1 ? 's' : ''}</li>
+                                <li class="flex items-center text-gray-500"><span class="mr-3 text-lg">⏭️</span> <span class="font-semibold">${c.projects_skip}</span> project${c.projects_skip !== 1 ? 's' : ''} skipped (already exist)</li>
+                                <li class="flex items-center text-white"><span class="mr-3 text-lg">📝</span> <span class="font-semibold">${c.subtasks_add}</span> new subtask${c.subtasks_add !== 1 ? 's' : ''}</li>
+                                <li class="flex items-center text-white"><span class="mr-3 text-lg">🧘</span> <span class="font-semibold">${c.habits_add}</span> new habit${c.habits_add !== 1 ? 's' : ''}</li>
+                                <li class="flex items-center text-white"><span class="mr-3 text-lg">📄</span> <span class="font-semibold">${c.templates_add}</span> new template${c.templates_add !== 1 ? 's' : ''}</li>
+                            </ul>
+                        `;
+                    document.getElementById('confirmImportBtn').classList.remove('hidden');
                 }
-            } catch (error) {
-                showToast('Preview error: ' + error.message, 'error');
+
+                const previewDiv = document.getElementById('importPreviewContent');
+                previewDiv.innerHTML = htmlContent;
+                previewDiv.classList.remove('hidden');
+            } else {
+                showToast(result.message || 'Failed to parse file', 'error');
                 window.closeModal('importConfirmModal');
             }
-        };
-
-        window.switchImportTab = function(tabIndex) {
-            window.currentImportTab = tabIndex;
-            
-            // Tab Buttons styling
-            for (let i = 0; i < 4; i++) {
-                const btn = document.getElementById(`importTabBtn-${i}`);
-                const pane = document.getElementById(`importTabPane-${i}`);
-                if (i === tabIndex) {
-                    btn.classList.add('bg-white/10', 'text-white');
-                    btn.classList.remove('text-gray-500');
-                    pane.classList.remove('hidden');
-                } else {
-                    btn.classList.remove('bg-white/10', 'text-white');
-                    btn.classList.add('text-gray-500');
-                    pane.classList.add('hidden');
-                }
-            }
-
-            // Sync Summary or Edits on tab entering
-            if (tabIndex === 1) {
-                renderEditItemsTab();
-            } else if (tabIndex === 3) {
-                renderSummaryTab();
-            }
-        };
-
-        window.toggleSelectAllImports = function(checked) {
-            window.selectedImportIds.clear();
-            if (checked) {
-                window.originalNewItems.forEach(x => window.selectedImportIds.add(x.import_id));
-            }
-            renderNewItemsTab();
-            renderSummaryTab();
-        };
-
-        // ── Category helpers ──────────────────────────────────────────────
-        function getCategoryKey(item) {
-            if (item.type === 'habit') return 'habit';
-            if (item.type === 'template') return 'template';
-            return item.is_archived ? 'archive' : 'dashboard';
-        }
-        function getFilteredItems(items, filter) {
-            if (filter === 'all') return items;
-            return items.filter(i => getCategoryKey(i) === filter);
-        }
-        function buildFilterCounts(items) {
-            const c = { all: items.length, dashboard: 0, archive: 0, habit: 0, template: 0 };
-            items.forEach(i => { c[getCategoryKey(i)]++; });
-            return c;
-        }
-        function renderFilterChips(currentFilter, setterFn, counts) {
-            const chips = [
-                { key: 'all',      label: '📋 All' },
-                { key: 'dashboard',label: '📌 Dashboard' },
-                { key: 'archive',  label: '📦 Archive' },
-                { key: 'habit',    label: '🧘 Habits' },
-                { key: 'template', label: '🗂️ Templates' },
-            ];
-            return chips
-                .filter(c => c.key === 'all' || counts[c.key] > 0)
-                .map(c => `<button type="button" onclick="${setterFn}('${c.key}')"
-                    class="filter-chip ${currentFilter === c.key ? 'fc-active' : ''}">
-                    ${c.label} <span style="opacity:.6">(${counts[c.key]})</span>
-                </button>`).join('');
-        }
-        function itemCatBadge(item) {
-            if (item.type === 'habit')    return `<span class="text-[10px] bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full font-bold">🧘 Habit</span>`;
-            if (item.type === 'template') return `<span class="text-[10px] bg-blue-500/15 text-blue-400 px-2 py-0.5 rounded-full font-bold">🗂️ Template</span>`;
-            return getCategoryKey(item) === 'archive'
-                ? `<span class="text-[10px] bg-yellow-500/15 text-yellow-400 px-2 py-0.5 rounded-full font-bold">📦 Archive</span>`
-                : `<span class="text-[10px] bg-purple-500/15 text-purple-400 px-2 py-0.5 rounded-full font-bold">📌 Dashboard</span>`;
-        }
-
-        window.renderNewItemsTab = function() {
-            const container = document.getElementById('newItemsList');
-            container.innerHTML = '';
-
-            if (window.originalNewItems.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center p-8 text-gray-500">
-                        <i class="fas fa-check-circle text-green-500 text-3xl mb-3 block"></i>
-                        No new items to import! Everything is up to date.
-                    </div>
-                `;
-                return;
-            }
-
-            // Filter bar
-            const filterBar = document.createElement('div');
-            filterBar.className = 'filter-bar mb-4';
-            filterBar.innerHTML = renderFilterChips(window.currentNewFilter, 'setNewFilter', buildFilterCounts(window.originalNewItems));
-            container.appendChild(filterBar);
-
-            const filtered = getFilteredItems(window.originalNewItems, window.currentNewFilter);
-            if (filtered.length === 0) {
-                const empty = document.createElement('div');
-                empty.className = 'text-center py-8 text-gray-500 italic text-sm';
-                empty.textContent = 'No items in this category.';
-                container.appendChild(empty);
-                return;
-            }
-
-            filtered.forEach(item => {
-                const isChecked = window.selectedImportIds.has(item.import_id);
-                const isEdited = hasItemEdits(item.import_id);
-
-                let icon = '📋', details = '';
-                if (item.type === 'habit') {
-                    icon = '🧘';
-                    details = `Color: ${item.color} | Notes: ${item.notes || '(None)'}`;
-                } else if (item.type === 'template') {
-                    icon = '🗂️';
-                    details = `${item.category} | ${item.priority} Priority`;
-                } else {
-                    details = `${item.category} | ${item.priority} Priority | ${(item.subtasks || []).length} Subtasks`;
-                }
-
-                const itemDiv = document.createElement('div');
-                itemDiv.className = `flex items-center justify-between p-4 glass-panel rounded-2xl hover:bg-white/5 transition border ${isChecked ? 'border-purple-500/20' : 'border-white/5'}`;
-                itemDiv.innerHTML = `
-                    <div class="flex items-center space-x-4">
-                        <input type="checkbox" id="check-${item.import_id}" ${isChecked ? 'checked' : ''}
-                               onchange="toggleImportItemSelection('${item.import_id}', this.checked)"
-                               class="w-5 h-5 accent-purple-500 cursor-pointer rounded">
-                        <div>
-                            <div class="flex items-center gap-2 flex-wrap">
-                                <span class="text-lg">${icon}</span>
-                                <span class="font-bold text-white text-base">${escapeHtml(item.title || item.name)}</span>
-                                ${itemCatBadge(item)}
-                                ${isEdited ? '<span class="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full font-bold">✏️ Edited</span>' : ''}
-                            </div>
-                            <div class="text-xs text-gray-500 mt-1">${escapeHtml(details)}</div>
-                        </div>
-                    </div>
-                `;
-                container.appendChild(itemDiv);
-            });
-        };
-
-        window.setNewFilter = function(filter) {
-            window.currentNewFilter = filter;
-            renderNewItemsTab();
-        };
-
-        window.toggleImportItemSelection = function(importId, checked) {
-            if (checked) {
-                window.selectedImportIds.add(importId);
-            } else {
-                window.selectedImportIds.delete(importId);
-            }
-            renderNewItemsTab();
-            renderSummaryTab();
-        };
-
-        function hasItemEdits(importId) {
-            const orig = window.originalNewItems.find(x => x.import_id === importId);
-            const edited = window.editedNewItems.find(x => x.import_id === importId);
-            if (!orig || !edited) return false;
-            
-            // Check major properties
-            if (orig.type === 'habit') {
-                return orig.name !== edited.name || orig.color !== edited.color || orig.notes !== edited.notes;
-            }
-            
-            if (orig.type === 'template') {
-                if (orig.name !== edited.name || orig.category !== edited.category || orig.priority !== edited.priority || orig.notes !== edited.notes) {
-                    return true;
-                }
-            } else {
-                if (orig.title !== edited.title || orig.category !== edited.category || orig.priority !== edited.priority || orig.notes !== edited.notes) {
-                    return true;
-                }
-            }
-
-            // Check subtasks lengths & contents
-            const origSubs = orig.subtasks || [];
-            const editedSubs = edited.subtasks || [];
-            if (origSubs.length !== editedSubs.length) return true;
-
-            for (let i = 0; i < origSubs.length; i++) {
-                if (origSubs[i].title !== editedSubs[i].title || origSubs[i].is_side_project !== editedSubs[i].is_side_project) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        window.renderEditItemsTab = function() {
-            const container = document.getElementById('editItemsList');
-            container.innerHTML = '';
-
-            if (window.editedNewItems.length === 0) {
-                container.innerHTML = `<div class="text-center p-8 text-gray-500">No items available for editing.</div>`;
-                return;
-            }
-
-            // Filter bar
-            const filterBar = document.createElement('div');
-            filterBar.className = 'filter-bar mb-4';
-            filterBar.innerHTML = renderFilterChips(window.currentEditFilter, 'setEditFilter', buildFilterCounts(window.editedNewItems));
-            container.appendChild(filterBar);
-
-            const filtered = getFilteredItems(window.editedNewItems, window.currentEditFilter);
-            if (filtered.length === 0) {
-                const empty = document.createElement('div');
-                empty.className = 'text-center py-8 text-gray-500 italic text-sm';
-                empty.textContent = 'No items in this category.';
-                container.appendChild(empty);
-                return;
-            }
-
-            // Accordion list
-            filtered.forEach(item => {
-                const isEdited = hasItemEdits(item.import_id);
-                const isOpen  = window.currentEditAccordion === item.import_id;
-                const label   = escapeHtml(item.title || item.name || 'Unnamed');
-
-                const accItem = document.createElement('div');
-                accItem.className = `accordion-item ${isOpen ? 'acc-open' : ''}`;
-                accItem.id = `acc-${item.import_id}`;
-
-                let bodyHtml = '';
-                if (item.type === 'habit')         bodyHtml = buildHabitEditBody(item);
-                else if (item.type === 'template') bodyHtml = buildTemplateEditBody(item);
-                else                               bodyHtml = buildProjectEditBody(item);
-
-                accItem.innerHTML = `
-                    <div class="accordion-header" onclick="toggleEditAccordion('${item.import_id}')">
-                        <div class="flex items-center gap-2 flex-wrap">
-                            ${item.type === 'habit' ? '🧘' : item.type === 'template' ? '🗂️' : '📋'}
-                            <span class="font-bold text-white text-sm">${label}</span>
-                            ${itemCatBadge(item)}
-                            ${isEdited ? '<span class="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full font-bold">✏️ Edited</span>' : ''}
-                        </div>
-                        <div class="flex items-center gap-3 shrink-0">
-                            ${isEdited ? `<button type="button" onclick="event.stopPropagation();resetImportItem('${item.import_id}')" class="text-xs text-gray-500 hover:text-white transition flex items-center"><i class="fas fa-undo mr-1"></i>Reset</button>` : ''}
-                            <i class="fas fa-chevron-down accordion-chevron text-gray-500"></i>
-                        </div>
-                    </div>
-                    <div class="accordion-body">${bodyHtml}</div>
-                `;
-                container.appendChild(accItem);
-            });
-        };
-
-        window.setEditFilter = function(filter) {
-            window.currentEditFilter = filter;
-            window.currentEditAccordion = null;
-            renderEditItemsTab();
-        };
-
-        window.toggleEditAccordion = function(importId) {
-            window.currentEditAccordion = (window.currentEditAccordion === importId) ? null : importId;
-            renderEditItemsTab();
-        };
-
-        // ── Accordion body builders ────────────────────────────────────────
-        function buildHabitEditBody(item) {
-            return `
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label class="text-xs text-gray-500 font-bold block mb-1">Habit Name</label>
-                        <input type="text" value="${escapeHtml(item.name)}" oninput="updateItemField('${item.import_id}', 'name', this.value)"
-                               class="w-full bg-white/5 border border-white/10 p-3 rounded-xl text-white focus:border-purple-500 transition">
-                    </div>
-                    <div>
-                        <label class="text-xs text-gray-500 font-bold block mb-1">Color</label>
-                        <div class="flex items-center space-x-3 bg-white/5 border border-white/10 p-2.5 rounded-xl">
-                            <input type="color" value="${item.color || '#ffffff'}" onchange="updateItemField('${item.import_id}', 'color', this.value)"
-                                   class="w-10 h-10 border-none rounded cursor-pointer bg-transparent">
-                            <span class="text-sm font-mono text-gray-400">${item.color || '#ffffff'}</span>
-                        </div>
-                    </div>
-                </div>
-                <div>
-                    <label class="text-xs text-gray-500 font-bold block mb-1">Notes</label>
-                    <textarea rows="2" oninput="updateItemField('${item.import_id}', 'notes', this.value)"
-                              class="w-full bg-white/5 border border-white/10 p-3 rounded-xl text-white resize-none focus:border-purple-500 transition">${escapeHtml(item.notes || '')}</textarea>
-                </div>
-            `;
-        }
-
-        function buildTemplateEditBody(item) {
-            const subsHtml = (item.subtasks || []).map((sub, sIdx) => `
-                <div class="flex items-center space-x-2">
-                    <input type="text" value="${escapeHtml(sub.title)}" oninput="updateTemplateSubtask('${item.import_id}', ${sIdx}, this.value)"
-                           class="flex-1 bg-white/5 border border-white/10 px-3 py-2 rounded-lg text-sm text-white focus:border-purple-500 transition">
-                    <button type="button" onclick="deleteTemplateSubtask('${item.import_id}', ${sIdx})" class="text-red-500 hover:text-red-400 p-2"><i class="fas fa-times"></i></button>
-                </div>`).join('');
-            return `
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div class="md:col-span-2">
-                        <label class="text-xs text-gray-500 font-bold block mb-1">Template Name</label>
-                        <input type="text" value="${escapeHtml(item.name)}" oninput="updateItemField('${item.import_id}', 'name', this.value)"
-                               class="w-full bg-white/5 border border-white/10 p-3 rounded-xl text-white focus:border-purple-500 transition">
-                    </div>
-                    <div>
-                        <label class="text-xs text-gray-500 font-bold block mb-1">Category</label>
-                        <input type="text" value="${escapeHtml(item.category || 'General')}" oninput="updateItemField('${item.import_id}', 'category', this.value)"
-                               class="w-full bg-white/5 border border-white/10 p-3 rounded-xl text-white focus:border-purple-500 transition">
-                    </div>
-                </div>
-                <div class="space-y-2 border-t border-white/5 pt-4">
-                    <label class="text-xs text-gray-500 font-bold block">Subtasks</label>
-                    <div class="space-y-2">${subsHtml}</div>
-                    <button type="button" onclick="addTemplateSubtask('${item.import_id}')" class="text-xs text-purple-400 hover:text-purple-300 font-bold mt-2 flex items-center transition">
-                        <i class="fas fa-plus mr-1"></i> Add Subtask
-                    </button>
-                </div>
-            `;
-        }
-
-        function buildProjectEditBody(item) {
-            const subs  = (item.subtasks || []).filter(s => !s.is_side_project);
-            const sides = (item.subtasks || []).filter(s => s.is_side_project);
-            const renderRow = (sub) => `
-                <div class="flex items-center space-x-2">
-                    <input type="text" value="${escapeHtml(sub.title)}" oninput="updateProjectSubtask('${item.import_id}', '${sub.id}', this.value)"
-                           class="flex-1 bg-white/5 border border-white/10 px-3 py-2 rounded-lg text-sm text-white focus:border-purple-500 transition ${sub.is_side_project ? 'font-semibold text-purple-300' : ''}">
-                    <span class="text-[10px] ${String(sub.id).startsWith('temp_') ? 'bg-green-500/20 text-green-400' : 'bg-white/5 text-gray-500'} px-2 py-1 rounded-full font-bold">
-                        ${String(sub.id).startsWith('temp_') ? '🆕' : 'Orig'}
-                    </span>
-                    <button type="button" onclick="deleteProjectSubtask('${item.import_id}', '${sub.id}')" class="text-red-500 hover:text-red-400 p-2"><i class="fas fa-times"></i></button>
-                </div>`;
-            return `
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div class="md:col-span-2">
-                        <label class="text-xs text-gray-500 font-bold block mb-1">Project Title</label>
-                        <input type="text" value="${escapeHtml(item.title)}" oninput="updateItemField('${item.import_id}', 'title', this.value)"
-                               class="w-full bg-white/5 border border-white/10 p-3 rounded-xl text-white focus:border-purple-500 transition">
-                    </div>
-                    <div>
-                        <label class="text-xs text-gray-500 font-bold block mb-1">Priority</label>
-                        <select onchange="updateItemField('${item.import_id}', 'priority', this.value)"
-                                class="w-full bg-white/5 border border-white/10 p-3 rounded-xl text-white focus:border-purple-500 transition">
-                            <option value="Urgent" ${item.priority === 'Urgent' ? 'selected' : ''}>Urgent</option>
-                            <option value="High" ${item.priority === 'High' ? 'selected' : ''}>High</option>
-                            <option value="Normal" ${item.priority === 'Normal' ? 'selected' : ''}>Normal</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label class="text-xs text-gray-500 font-bold block mb-1">Category</label>
-                        <input type="text" value="${escapeHtml(item.category || 'General')}" oninput="updateItemField('${item.import_id}', 'category', this.value)"
-                               class="w-full bg-white/5 border border-white/10 p-3 rounded-xl text-white focus:border-purple-500 transition">
-                    </div>
-                    <div>
-                        <label class="text-xs text-gray-500 font-bold block mb-1">Due Date</label>
-                        <input type="date" value="${item.due_date || ''}" onchange="updateItemField('${item.import_id}', 'due_date', this.value)"
-                               class="w-full bg-white/5 border border-white/10 p-3 rounded-xl text-white focus:border-purple-500 transition">
-                    </div>
-                </div>
-                <div class="space-y-3 border-t border-white/5 pt-4">
-                    <label class="text-xs text-gray-500 uppercase font-bold block">📝 Subtasks</label>
-                    <div class="space-y-2">
-                        ${subs.length === 0 ? '<p class="text-xs text-gray-600 italic">No flat subtasks</p>' : subs.map(renderRow).join('')}
-                    </div>
-                    <button type="button" onclick="addProjectSubtask('${item.import_id}', false)" class="text-xs text-purple-400 hover:text-purple-300 font-bold flex items-center transition">
-                        <i class="fas fa-plus mr-1"></i> Add Subtask
-                    </button>
-                </div>
-                <div class="space-y-3 mt-4 border-t border-white/5 pt-4">
-                    <label class="text-xs text-gray-500 uppercase font-bold block">📁 Side Projects</label>
-                    <div class="space-y-2">
-                        ${sides.length === 0 ? '<p class="text-xs text-gray-600 italic">No side projects</p>' : sides.map(renderRow).join('')}
-                    </div>
-                    <button type="button" onclick="addProjectSubtask('${item.import_id}', true)" class="text-xs text-purple-400 hover:text-purple-300 font-bold flex items-center transition">
-                        <i class="fas fa-folder-plus mr-1"></i> Add Side Project
-                    </button>
-                </div>
-            `;
-        }
-
-        window.updateItemField = function(importId, field, val) {
-            const item = window.editedNewItems.find(x => x.import_id === importId);
-            if (item) {
-                item[field] = val;
-                // Reactive update on edits count
-                renderSummaryTab();
-            }
-        };
-
-        window.resetImportItem = function(importId) {
-            const orig = window.originalNewItems.find(x => x.import_id === importId);
-            const idx = window.editedNewItems.findIndex(x => x.import_id === importId);
-            if (orig && idx !== -1) {
-                window.editedNewItems[idx] = JSON.parse(JSON.stringify(orig));
-                renderEditItemsTab();
-                renderNewItemsTab();
-                renderSummaryTab();
-                showToast('Item reset to original properties');
-            }
-        };
-
-        // Project Subtasks
-        window.updateProjectSubtask = function(importId, subId, title) {
-            const item = window.editedNewItems.find(x => x.import_id === importId);
-            if (item && item.subtasks) {
-                const sub = item.subtasks.find(s => String(s.id) === String(subId));
-                if (sub) {
-                    sub.title = title;
-                }
-            }
-        };
-
-        window.deleteProjectSubtask = function(importId, subId) {
-            const item = window.editedNewItems.find(x => x.import_id === importId);
-            if (item && item.subtasks) {
-                item.subtasks = item.subtasks.filter(s => String(s.id) !== String(subId));
-                renderEditItemsTab();
-            }
-        };
-
-        window.addProjectSubtask = function(importId, isSide) {
-            const item = window.editedNewItems.find(x => x.import_id === importId);
-            if (item && item.subtasks) {
-                item.subtasks.push({
-                    id: 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-                    title: '',
-                    is_completed: false,
-                    is_side_project: isSide,
-                    parent_id: null
-                });
-                renderEditItemsTab();
-            }
-        };
-
-        // Template Subtasks
-        window.updateTemplateSubtask = function(importId, idx, title) {
-            const item = window.editedNewItems.find(x => x.import_id === importId);
-            if (item && item.subtasks && item.subtasks[idx]) {
-                item.subtasks[idx].title = title;
-            }
-        };
-
-        window.deleteTemplateSubtask = function(importId, idx) {
-            const item = window.editedNewItems.find(x => x.import_id === importId);
-            if (item && item.subtasks) {
-                item.subtasks.splice(idx, 1);
-                renderEditItemsTab();
-            }
-        };
-
-        window.addTemplateSubtask = function(importId) {
-            const item = window.editedNewItems.find(x => x.import_id === importId);
-            if (item && item.subtasks) {
-                item.subtasks.push({ title: '' });
-                renderEditItemsTab();
-            }
-        };
-
-        window.renderDuplicateItemsTab = function() {
-            const container = document.getElementById('duplicateItemsList');
-            container.innerHTML = '';
-
-            if (window.duplicateItems.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center p-8 text-gray-500 italic">
-                        No duplicates! All elements from backup are completely new.
-                    </div>
-                `;
-                return;
-            }
-
-            // Group by type
-            const groups = { project: [], habit: [], template: [] };
-            window.duplicateItems.forEach(x => {
-                if (groups[x.type]) groups[x.type].push(x.title);
-            });
-
-            const typeMeta = {
-                project: { label: 'Projects', icon: '📋' },
-                habit: { label: 'Habits', icon: '🧘' },
-                template: { label: 'Templates', icon: '🗂️' }
-            };
-
-            Object.keys(groups).forEach(type => {
-                const titles = groups[type];
-                if (titles.length === 0) return;
-
-                const section = document.createElement('div');
-                section.className = 'space-y-2';
-                section.innerHTML = `
-                    <h4 class="text-xs uppercase font-bold text-gray-500 tracking-wider flex items-center">
-                        <span class="mr-2">${typeMeta[type].icon}</span> ${typeMeta[type].label} (${titles.length})
-                    </h4>
-                    <div class="bg-white/5 border border-white/5 rounded-2xl p-4 max-h-[150px] overflow-y-auto custom-scrollbar">
-                        <ul class="list-disc list-inside text-sm text-gray-400 space-y-1">
-                            ${titles.map(title => `<li>${escapeHtml(title)}</li>`).join('')}
-                        </ul>
-                    </div>
-                `;
-                container.appendChild(section);
-            });
-        };
-
-        window.renderSummaryTab = function() {
-            const totalItems = window.originalNewItems.length;
-            const selectedCount = window.selectedImportIds.size;
-
-            let editedCount = 0;
-            window.originalNewItems.forEach(item => {
-                if (hasItemEdits(item.import_id)) editedCount++;
-            });
-
-            document.getElementById('summaryCounter').textContent = `${selectedCount} of ${totalItems} Selected`;
-            document.getElementById('summaryEditedCounter').textContent = `${editedCount} Edited Item${editedCount !== 1 ? 's' : ''}`;
-
-            const breakdown = document.getElementById('summaryBreakdown');
-            breakdown.innerHTML = '';
-
-            const categories = [
-                { key: 'dashboard', label: '📌 Dashboard Tasks',  color: 'color:#c4b5fd' },
-                { key: 'archive',   label: '📦 Archived Tasks',   color: 'color:#fbbf24' },
-                { key: 'habit',     label: '🧘 Habits',           color: 'color:#6ee7b7' },
-                { key: 'template',  label: '🗂️ Templates',        color: 'color:#93c5fd' },
-            ];
-
-            const selByCat   = { dashboard: 0, archive: 0, habit: 0, template: 0 };
-            const totalByCat = { dashboard: 0, archive: 0, habit: 0, template: 0 };
-
-            window.originalNewItems.forEach(item => {
-                const k = getCategoryKey(item);
-                totalByCat[k]++;
-                if (window.selectedImportIds.has(item.import_id)) selByCat[k]++;
-            });
-
-            let hasRows = false;
-            categories.forEach(cat => {
-                if (totalByCat[cat.key] === 0) return;
-                hasRows = true;
-                const row = document.createElement('div');
-                row.className = 'flex justify-between items-center border-b border-white/5 py-2.5';
-                row.innerHTML = `
-                    <span class="font-semibold text-sm" style="${cat.color}">${cat.label}</span>
-                    <span class="text-white text-sm font-bold">${selByCat[cat.key]} <span class="text-gray-500 font-normal">of</span> ${totalByCat[cat.key]}</span>
-                `;
-                breakdown.appendChild(row);
-            });
-
-            if (!hasRows) {
-                breakdown.innerHTML = '<p class="text-gray-600 italic text-xs">No items to import.</p>';
-            }
-        };
-
-        window.cancelImport = function() {
-            window.selectedImportFile = null;
-            document.getElementById('importFileInput').value = '';
+        } catch (error) {
+            showToast('Preview error: ' + error.message, 'error');
             window.closeModal('importConfirmModal');
-        };
-
-        window.confirmImport = async function() {
-            if (!window.selectedImportFile) return;
-
-            const btn = document.getElementById('confirmImportBtn');
-            btn.disabled = true;
-            btn.innerText = '⏳ Importing...';
-
-            const formData = new FormData();
-            formData.append('file', window.selectedImportFile);
-            
-            // Selective Importing Parameters
-            formData.append('selected_ids', JSON.stringify(Array.from(window.selectedImportIds)));
-            formData.append('edited_items', JSON.stringify(window.editedNewItems.reduce((acc, item) => {
-                acc[item.import_id] = item;
-                return acc;
-            }, {})));
-
-            try {
-                const response = await fetch('/import_data', {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await response.json();
-
-                if (result.success) {
-                    const c = result.counts;
-                    let lines = ['✅ Import complete!'];
-                    if (c.projects_added)      lines.push(`📋 ${c.projects_added} new task${c.projects_added>1?'s':''} added`);
-                    if (c.projects_skipped)    lines.push(`⏭️ ${c.projects_skipped} task${c.projects_skipped>1?'s':''} skipped (identical)`);
-                    if (c.subtasks_added)      lines.push(`📝 ${c.subtasks_added} new subtask${c.subtasks_added>1?'s':''} added`);
-                    if (c.habits_added)        lines.push(`🧘 ${c.habits_added} new habit${c.habits_added>1?'s':''} added`);
-                    if (c.habit_entries_added) lines.push(`📅 ${c.habit_entries_added} new habit entr${c.habit_entries_added>1?'ies':'y'} added`);
-                    if (c.templates_added)     lines.push(`🗂️ ${c.templates_added} new template${c.templates_added>1?'s':''} added`);
-                    if (c.settings_updated)    lines.push(`🔄 ${c.settings_updated} setting${c.settings_updated>1?'s':''} updated`);
-                    if (c.quotes_added)        lines.push(`💬 ${c.quotes_added} new quote${c.quotes_added>1?'s':''} added`);
-                    if (lines.length === 1)    lines.push('⏭️ All data already up to date');
-
-                    showToast(lines.join('<br>'));
-                    window.closeModal('importConfirmModal');
-                    
-                    // Reload home or dashboard metrics after completion
-                    setTimeout(() => location.href = '/settings', 1500);
-                } else {
-                    showToast(result.message || 'Import failed', 'error');
-                }
-            } catch (error) {
-                showToast('Import failed: ' + error.message, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerText = 'Import Selected';
-            }
-        };
-
-        window.chooseBackupFolder = async function(event) {
-            const btn = event.currentTarget;
-            const originalHtml = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i> Waiting...';
-            btn.disabled = true;
-            
-            try {
-                const response = await fetch('/choose_backup_folder', { method: 'POST' });
-                const result = await response.json();
-                
-                if (result.success) {
-                    document.getElementById('currentBackupFolder').textContent = result.path;
-                    showToast('Backup folder set & initial backup created!');
-                } else if (result.message !== 'No folder selected') {
-                    showToast(result.message, 'error');
-                }
-            } catch (error) {
-                showToast('Error selecting folder', 'error');
-            }
-            
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
-        };
-
-        // Utility: HTML escaping to prevent XSS
-        function escapeHtml(unsafe) {
-            if (unsafe === undefined || unsafe === null) return '';
-            return String(unsafe)
-                 .replace(/&/g, "&amp;")
-                 .replace(/</g, "&lt;")
-                 .replace(/>/g, "&gt;")
-                 .replace(/"/g, "&quot;")
-                 .replace(/'/g, "&#039;");
         }
-    </script>
+    };
+
+    window.selectedImportFile = null;
+
+    window.cancelImport = function () {
+        window.selectedImportFile = null;
+        document.getElementById('importFileInput').value = '';
+        window.closeModal('importConfirmModal');
+    };
+
+    window.confirmImport = async function () {
+        if (!window.selectedImportFile) return;
+
+        const btn = document.getElementById('confirmImportBtn');
+        btn.disabled = true;
+        btn.innerText = '⏳ Importing...';
+
+        const formData = new FormData();
+        formData.append('file', window.selectedImportFile);
+
+        try {
+            const response = await fetch('/import_data', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                const c = result.counts;
+                let lines = ['✅ Import complete!'];
+                if (c.projects_added) lines.push(`📋 ${c.projects_added} new task${c.projects_added > 1 ? 's' : ''} added`);
+                if (c.projects_skipped) lines.push(`⏭️ ${c.projects_skipped} task${c.projects_skipped > 1 ? 's' : ''} skipped (identical)`);
+                if (c.subtasks_added) lines.push(`📝 ${c.subtasks_added} new subtask${c.subtasks_added > 1 ? 's' : ''} added`);
+                if (c.habits_added) lines.push(`🧘 ${c.habits_added} new habit${c.habits_added > 1 ? 's' : ''} added`);
+                if (c.habit_entries_added) lines.push(`📅 ${c.habit_entries_added} new habit entr${c.habit_entries_added > 1 ? 'ies' : 'y'} added`);
+                if (c.templates_added) lines.push(`🗂️ ${c.templates_added} new template${c.templates_added > 1 ? 's' : ''} added`);
+                if (c.settings_updated) lines.push(`🔄 ${c.settings_updated} setting${c.settings_updated > 1 ? 's' : ''} updated`);
+                if (c.quotes_added) lines.push(`💬 ${c.quotes_added} new quote${c.quotes_added > 1 ? 's' : ''} added`);
+                if (lines.length === 1) lines.push('⏭️ All data already up to date');
+
+                showToast(lines.join('<br>'));
+                window.closeModal('importConfirmModal');
+                btn.disabled = false;
+                btn.innerText = 'Confirm Import';
+            } else {
+                showToast(result.message || 'Import failed', 'error');
+                btn.disabled = false;
+                btn.innerText = 'Confirm Import';
+            }
+        } catch (error) {
+            showToast('Import failed: ' + error.message, 'error');
+            btn.disabled = false;
+            btn.innerText = 'Confirm Import';
+        }
+        window.closeModal('importConfirmModal');
+    };
+
+    window.chooseBackupFolder = async function (event) {
+        const btn = event.currentTarget;
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i> Waiting...';
+        btn.disabled = true;
+
+        try {
+            const response = await fetch('/choose_backup_folder', { method: 'POST' });
+            const result = await response.json();
+
+            if (result.success) {
+                document.getElementById('currentBackupFolder').textContent = result.path;
+                showToast('Backup folder set & initial backup created!');
+            } else if (result.message !== 'No folder selected') {
+                showToast(result.message, 'error');
+            }
+        } catch (error) {
+            showToast('Error selecting folder', 'error');
+        }
+
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    };
+</script>
 {% endblock %}

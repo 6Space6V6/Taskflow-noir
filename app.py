@@ -129,6 +129,25 @@ class HabitEntry(db.Model):
     completed = db.Column(db.Boolean, default=False)
     __table_args__ = (db.UniqueConstraint('habit_id', 'date', name='_habit_date_uc'),)
 
+class InboxItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(500), nullable=False)
+    subtasks_json = db.Column(db.Text, nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    planned_date = db.Column(db.Date, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_converted = db.Column(db.Boolean, default=False)
+
+class AIPrompt(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.String(200), nullable=True)
+    prompt_text = db.Column(db.Text, nullable=False)
+    example_input = db.Column(db.Text, nullable=True)
+    example_output = db.Column(db.Text, nullable=True)
+    category = db.Column(db.String(50), default="General")
+    order_index = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 # إنشاء الجداول
 with app.app_context():
@@ -163,6 +182,16 @@ with app.app_context():
         except Exception as e:
             print(f"Migration error is_side_project: {e}")
             db.session.rollback()
+
+    # Robust Migrations for InboxItem table
+    try:
+        columns_inbox = [c['name'] for c in inspector.get_columns('inbox_item')]
+        if 'planned_date' not in columns_inbox:
+            db.session.execute(text('ALTER TABLE inbox_item ADD COLUMN planned_date DATE;'))
+            db.session.commit()
+    except Exception as e:
+        print(f"Migration error inbox_item planned_date: {e}")
+        db.session.rollback()
     
     # إعدادات افتراضية
     default_settings = {
@@ -209,7 +238,77 @@ with app.app_context():
         db.session.add(TemplateSubTask(title="Make shopping list", template_id=t2.id))
         db.session.add(TemplateSubTask(title="Check fridge", template_id=t2.id))
         db.session.add(TemplateSubTask(title="Go to supermarket", template_id=t2.id))
-    
+
+    # قوالب الذكاء الاصطناعي الافتراضية
+    if AIPrompt.query.count() == 0:
+        default_prompts = [
+            {
+                'name': '📥 JSON Import',
+                'description': 'Convert any text to TaskFlow JSON format for import',
+                'category': 'Import',
+                'prompt_text': '''You are an AI assistant. Convert the text below to a JSON array of tasks.
+
+Each task object can have:
+- "title" (string, required)
+- "subtasks" (array of strings, optional)
+- "notes" (string, optional)
+
+Output ONLY valid JSON. No explanations, no markdown formatting.
+
+Text to convert:
+"""
+{{user_text}}
+"""'''
+            },
+            {
+                'name': '📝 Meeting Notes to Tasks',
+                'description': 'Extract action items from meeting notes',
+                'category': 'Extract',
+                'prompt_text': '''Extract all action items from these meeting notes.
+
+Output as JSON array. Each item has "title" and "assigned_to" (if mentioned in the notes).
+
+Meeting notes:
+"""
+{{user_text}}
+"""'''
+            },
+            {
+                'name': '🧠 Brain Dump Organizer',
+                'description': 'Organize scattered thoughts into structured tasks',
+                'category': 'Organize',
+                'prompt_text': '''Organize this brain dump into a structured task list.
+
+Group related items as subtasks under main tasks. Output as JSON array where each task has "title" and optional "subtasks" array.
+
+Brain dump:
+"""
+{{user_text}}
+"""'''
+            },
+            {
+                'name': '🔨 Subtask Generator',
+                'description': 'Break down a big task into small actionable subtasks',
+                'category': 'Generate',
+                'prompt_text': '''Break down this task into 5-10 small, actionable subtasks.
+
+Output as JSON array of strings.
+
+Task:
+"""
+{{user_text}}
+"""'''
+            }
+        ]
+        for p in default_prompts:
+            db.session.add(AIPrompt(
+                name=p['name'],
+                description=p['description'],
+                prompt_text=p['prompt_text'],
+                category=p['category'],
+                order_index=default_prompts.index(p)
+            ))
+
     db.session.commit()
 
 # --- Context Processor ---
@@ -557,6 +656,73 @@ def settings_view():
     all_settings = {s.key: s.value for s in Settings.query.all()}
     quotes = Quote.query.all()
     return render_template('settings.html', settings=all_settings, quotes=quotes)
+
+@app.route('/ai-prompts')
+def ai_prompts_view():
+    prompts = AIPrompt.query.order_by(AIPrompt.order_index.asc()).all()
+    return render_template('ai_prompts.html', prompts=prompts)
+
+@app.route('/api/prompts', methods=['GET'])
+def get_prompts():
+    prompts = AIPrompt.query.order_by(AIPrompt.order_index.asc()).all()
+    return jsonify([{
+        'id': p.id,
+        'name': p.name,
+        'description': p.description,
+        'prompt_text': p.prompt_text,
+        'example_input': p.example_input,
+        'example_output': p.example_output,
+        'category': p.category,
+        'order_index': p.order_index
+    } for p in prompts])
+
+@app.route('/api/prompts/add', methods=['POST'])
+def add_prompt():
+    data = request.json
+    max_order = db.session.query(func.max(AIPrompt.order_index)).scalar() or 0
+    prompt = AIPrompt(
+        name=data['name'],
+        description=data.get('description', ''),
+        prompt_text=data['prompt_text'],
+        example_input=data.get('example_input', ''),
+        example_output=data.get('example_output', ''),
+        category=data.get('category', 'General'),
+        order_index=max_order + 1
+    )
+    db.session.add(prompt)
+    db.session.commit()
+    return jsonify({'success': True, 'id': prompt.id})
+
+@app.route('/api/prompts/update/<int:id>', methods=['POST'])
+def update_prompt(id):
+    prompt = AIPrompt.query.get_or_404(id)
+    data = request.json
+    prompt.name = data.get('name', prompt.name)
+    prompt.description = data.get('description', prompt.description)
+    prompt.prompt_text = data.get('prompt_text', prompt.prompt_text)
+    prompt.example_input = data.get('example_input', prompt.example_input)
+    prompt.example_output = data.get('example_output', prompt.example_output)
+    prompt.category = data.get('category', prompt.category)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/api/prompts/delete/<int:id>', methods=['POST'])
+def delete_prompt(id):
+    prompt = AIPrompt.query.get_or_404(id)
+    db.session.delete(prompt)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/api/prompts/reorder', methods=['POST'])
+def reorder_prompts():
+    data = request.json
+    ids = data.get('ids', [])
+    for index, prompt_id in enumerate(ids):
+        prompt = AIPrompt.query.get(prompt_id)
+        if prompt:
+            prompt.order_index = index
+    db.session.commit()
+    return jsonify({'success': True})
 
 # --- API Routes ---
 
@@ -1525,7 +1691,26 @@ def get_full_backup_data():
             } for a in DailyActivity.query.all()],
             "achievements": [{
                 'id': a.id, 'key': a.key, 'unlocked_at': str(a.unlocked_at)
-            } for a in Achievement.query.all()]
+            } for a in Achievement.query.all()],
+            "inbox_items": [{
+                'id': i.id,
+                'title': i.title,
+                'subtasks_json': i.subtasks_json,
+                'notes': i.notes,
+                'created_at': str(i.created_at),
+                'is_converted': i.is_converted
+            } for i in InboxItem.query.all()],
+            "ai_prompts": [{
+                'id': p.id,
+                'name': p.name,
+                'description': p.description,
+                'prompt_text': p.prompt_text,
+                'example_input': p.example_input,
+                'example_output': p.example_output,
+                'category': p.category,
+                'order_index': p.order_index,
+                'created_at': str(p.created_at) if p.created_at else None
+            } for p in AIPrompt.query.all()]
         }
     }
 
@@ -1594,13 +1779,27 @@ def import_preview():
         
         tables = data["tables"]
         
+        counts = {
+            "projects_add": 0,
+            "projects_skip": 0,
+            "subtasks_add": 0,
+            "habits_add": 0,
+            "templates_add": 0,
+            "inbox_items_add": 0,
+            "prompts_add": 0,
+            "prompts_skip": 0
+        }
+
+        # Simulated maps (old ID -> new simulated ID)
+        project_map = {}
+        subtask_map = {}
+        habit_map = {}
+        template_map = {}
+
         # 1. Projects
         import_subs_by_project = {}
         for s_data in tables.get("subtasks", []):
             import_subs_by_project.setdefault(s_data['project_id'], set()).add(s_data['title'])
-
-        new_items = []
-        duplicate_items = []
 
         for p_data in tables.get("projects", []):
             due_str = p_data.get('due_date') or ''
@@ -1621,35 +1820,53 @@ def import_preview():
                     break
 
             if existing:
-                duplicate_items.append({
-                    "type": "project",
-                    "title": p_data['title'],
-                    "is_archived": p_data.get('is_archived', False)
-                })
+                project_map[p_data['id']] = existing.id
+                counts["projects_skip"] += 1
             else:
-                p_subs = [s for s in tables.get("subtasks", []) if s['project_id'] == p_data['id']]
-                new_items.append({
-                    "type": "project",
-                    "import_id": f"p_{p_data['id']}",
-                    "original_id": p_data['id'],
-                    "title": p_data['title'],
-                    "category": p_data.get('category', 'General'),
-                    "priority": p_data.get('priority', 'Normal'),
-                    "due_date": p_data.get('due_date'),
-                    "notes": p_data.get('notes', ''),
-                    "tags": p_data.get('tags', ''),
-                    "is_archived": p_data.get('is_archived', False),
-                    "is_completed": p_data.get('is_completed', False),
-                    "subtasks": [{
-                        "id": s['id'],
-                        "title": s['title'],
-                        "is_completed": s.get('is_completed', False),
-                        "is_side_project": s.get('is_side_project', False),
-                        "parent_id": s.get('parent_id')
-                    } for s in p_subs]
-                })
+                simulated_id = f"sim_p_{p_data['id']}"
+                project_map[p_data['id']] = simulated_id
+                counts["projects_add"] += 1
 
-        # 2. Habits
+        # 2. Subtasks (2-pass Relational Dependency Resolver - simulated)
+        queue = list(tables.get("subtasks", []))
+        progress = True
+        
+        while queue and progress:
+            progress = False
+            for s_data in list(queue):
+                old_parent_id = s_data.get('parent_id')
+                
+                if old_parent_id is None or old_parent_id in subtask_map:
+                    new_project_id = project_map.get(s_data['project_id'])
+                    if new_project_id:
+                        new_parent_id = subtask_map.get(old_parent_id) if old_parent_id else None
+                        is_sp = s_data.get('is_side_project', False)
+                        
+                        existing = None
+                        if isinstance(new_project_id, int):
+                            existing = SubTask.query.filter_by(
+                                title=s_data['title'],
+                                project_id=new_project_id,
+                                parent_id=new_parent_id,
+                                is_side_project=is_sp
+                            ).first()
+                        
+                        if existing:
+                            subtask_map[s_data['id']] = existing.id
+                        else:
+                            simulated_id = f"sim_s_{s_data['id']}"
+                            subtask_map[s_data['id']] = simulated_id
+                            counts["subtasks_add"] += 1
+                            
+                    queue.remove(s_data)
+                    progress = True
+                    
+        for s_data in queue:
+            new_project_id = project_map.get(s_data['project_id'])
+            if new_project_id:
+                counts["subtasks_add"] += 1
+
+        # 3. Habits
         for h_data in tables.get("habits", []):
             existing = Habit.query.filter_by(
                 name=h_data['name'],
@@ -1660,24 +1877,12 @@ def import_preview():
                 existing = None
 
             if existing:
-                duplicate_items.append({
-                    "type": "habit",
-                    "title": h_data['name']
-                })
+                habit_map[h_data['id']] = existing.id
             else:
-                new_items.append({
-                    "type": "habit",
-                    "import_id": f"h_{h_data['id']}",
-                    "original_id": h_data['id'],
-                    "name": h_data['name'],
-                    "icon": h_data.get('icon', 'fas fa-dumbbell'),
-                    "color": h_data.get('color', '#ffffff'),
-                    "notes": h_data.get('notes', ''),
-                    "group_name": h_data.get('group_name', 'General'),
-                    "best_streak": h_data.get('best_streak', 0)
-                })
+                habit_map[h_data['id']] = f"sim_h_{h_data['id']}"
+                counts["habits_add"] += 1
 
-        # 3. Templates
+        # 4. Templates
         import_tsubs_by_template = {}
         for ts_data in tables.get("template_subtasks", []):
             import_tsubs_by_template.setdefault(ts_data['template_id'], set()).add(ts_data['title'])
@@ -1692,30 +1897,29 @@ def import_preview():
                     break
 
             if existing:
-                duplicate_items.append({
-                    "type": "template",
-                    "title": t_data['name']
-                })
+                template_map[t_data['id']] = existing.id
             else:
-                t_subs = [ts for ts in tables.get("template_subtasks", []) if ts['template_id'] == t_data['id']]
-                new_items.append({
-                    "type": "template",
-                    "import_id": f"t_{t_data['id']}",
-                    "original_id": t_data['id'],
-                    "name": t_data['name'],
-                    "category": t_data.get('category', 'General'),
-                    "priority": t_data.get('priority', 'Normal'),
-                    "tags": t_data.get('tags', ''),
-                    "notes": t_data.get('notes', ''),
-                    "subtasks": [{
-                        "title": s['title']
-                    } for s in t_subs]
-                })
+                template_map[t_data['id']] = f"sim_t_{t_data['id']}"
+                counts["templates_add"] += 1
+
+        # 5. Inbox Items
+        for i_data in tables.get("inbox_items", []):
+            existing = InboxItem.query.filter_by(title=i_data['title']).first()
+            if not existing:
+                counts["inbox_items_add"] += 1
+
+        # 6. AI Prompts
+        prompts_data = tables.get("ai_prompts", [])
+        for p_data in prompts_data:
+            existing = AIPrompt.query.filter_by(name=p_data['name']).first()
+            if existing:
+                counts["prompts_skip"] += 1
+            else:
+                counts["prompts_add"] += 1
 
         return jsonify({
             "success": True,
-            "new_items": new_items,
-            "duplicate_items": duplicate_items
+            "counts": counts
         })
         
     except Exception as e:
@@ -1737,27 +1941,15 @@ def import_data():
         
         tables = data["tables"]
         
-        # Parse optional selective importing parameters
-        selected_ids_raw = request.form.get('selected_ids')
-        edited_items_raw = request.form.get('edited_items')
-        
-        if selected_ids_raw is not None:
-            selected_ids = json.loads(selected_ids_raw)
-        else:
-            selected_ids = None  # None means import all new items (legacy behavior)
-            
-        if edited_items_raw is not None:
-            edited_items = json.loads(edited_items_raw)
-        else:
-            edited_items = {}
-
         counts = {
             "projects_added": 0, "projects_skipped": 0,
             "subtasks_added": 0, "subtasks_skipped": 0,
             "habits_added": 0, "habits_skipped": 0,
             "habit_entries_added": 0, "habit_entries_skipped": 0,
             "templates_added": 0, "templates_skipped": 0,
-            "settings_updated": 0, "quotes_added": 0
+            "settings_updated": 0, "quotes_added": 0,
+            "inbox_items_added": 0, "inbox_items_skipped": 0,
+            "prompts_added": 0, "prompts_updated": 0
         }
 
         # ID Mappings (Old ID -> New ID)
@@ -1783,9 +1975,8 @@ def import_data():
         for ts_data in tables.get("template_subtasks", []):
             import_tsubs_by_template.setdefault(ts_data['template_id'], set()).add(ts_data['title'])
 
-        # 1. Projects
+        # 1. Projects — match: title + is_archived + due_date + set of subtask titles
         for p_data in tables.get("projects", []):
-            import_id = f"p_{p_data['id']}"
             due_str = p_data.get('due_date') or ''
             import_sub_titles = import_subs_by_project.get(p_data['id'], set())
 
@@ -1807,25 +1998,14 @@ def import_data():
                 project_map[p_data['id']] = existing.id
                 counts["projects_skipped"] += 1
             else:
-                # If selective list is provided, only import if selected
-                if selected_ids is not None and import_id not in selected_ids:
-                    continue
-                
-                # Check for edited fields
-                p_fields = p_data
-                if import_id in edited_items:
-                    p_fields = edited_items[import_id]
-
                 p = Project(
-                    title=p_fields['title'], category=p_fields.get('category', 'General'),
-                    priority=p_fields.get('priority', 'Normal'), notes=p_fields.get('notes', ''),
-                    tags=p_fields.get('tags', ''),
-                    is_archived=p_fields.get('is_archived', p_data.get('is_archived', False)),
-                    is_completed=p_fields.get('is_completed', p_data.get('is_completed', False)),
-                    order_index=p_data.get('order_index', 0),
-                    due_date=datetime.strptime(p_fields['due_date'], '%Y-%m-%d').date() if p_fields.get('due_date') else None,
-                    completed_at=parse_dt(p_fields.get('completed_at', p_data.get('completed_at'))),
-                    created_at=parse_dt(p_fields.get('created_at', p_data.get('created_at'))) or datetime.utcnow()
+                    title=p_data['title'], category=p_data['category'],
+                    priority=p_data['priority'], notes=p_data['notes'], tags=p_data['tags'],
+                    is_archived=p_data['is_archived'], is_completed=p_data['is_completed'],
+                    order_index=p_data['order_index'],
+                    due_date=datetime.strptime(p_data['due_date'], '%Y-%m-%d').date() if p_data.get('due_date') else None,
+                    completed_at=parse_dt(p_data.get('completed_at')),
+                    created_at=parse_dt(p_data.get('created_at')) or datetime.utcnow()
                 )
                 db.session.add(p)
                 db.session.flush()
@@ -1834,46 +2014,7 @@ def import_data():
 
         # 2. Subtasks (2-pass Relational Dependency Resolver)
         subtask_map = {}
-        subtasks_to_import = []
-        
-        for p_data in tables.get("projects", []):
-            new_db_project_id = project_map.get(p_data['id'])
-            if not new_db_project_id:
-                continue
-                
-            import_id = f"p_{p_data['id']}"
-            # If it was duplicate, we skip adding subtasks (since they exist)
-            if selected_ids is not None and import_id not in selected_ids:
-                continue
-                
-            if import_id in edited_items:
-                edited_subs = edited_items[import_id].get('subtasks', [])
-                for s in edited_subs:
-                    subtasks_to_import.append({
-                        "id": s.get("id"),
-                        "title": s.get("title"),
-                        "is_completed": s.get("is_completed", False),
-                        "project_id": p_data['id'],
-                        "db_project_id": new_db_project_id,
-                        "parent_id": s.get("parent_id"),
-                        "is_side_project": s.get("is_side_project", False),
-                        "order_index": s.get("order_index", 0)
-                    })
-            else:
-                orig_subs = [s for s in tables.get("subtasks", []) if s['project_id'] == p_data['id']]
-                for s in orig_subs:
-                    subtasks_to_import.append({
-                        "id": s['id'],
-                        "title": s['title'],
-                        "is_completed": s.get('is_completed', False),
-                        "project_id": p_data['id'],
-                        "db_project_id": new_db_project_id,
-                        "parent_id": s.get('parent_id'),
-                        "is_side_project": s.get('is_side_project', False),
-                        "order_index": s.get('order_index', 0)
-                    })
-
-        queue = list(subtasks_to_import)
+        queue = list(tables.get("subtasks", []))
         progress = True
         
         while queue and progress:
@@ -1882,48 +2023,66 @@ def import_data():
                 old_parent_id = s_data.get('parent_id')
                 
                 # Check if we can process it (no parent, or parent already processed)
-                if old_parent_id is None or str(old_parent_id) in subtask_map:
-                    new_parent_id = subtask_map.get(str(old_parent_id)) if old_parent_id else None
-                    
-                    s = SubTask(
-                        title=s_data['title'],
-                        is_completed=s_data['is_completed'],
-                        project_id=s_data['db_project_id'],
-                        parent_id=new_parent_id,
-                        is_side_project=s_data['is_side_project'],
-                        order_index=s_data['order_index']
-                    )
-                    db.session.add(s)
-                    db.session.flush()
-                    subtask_map[str(s_data['id'])] = s.id
-                    counts["subtasks_added"] += 1
-                    
+                if old_parent_id is None or old_parent_id in subtask_map:
+                    new_project_id = project_map.get(s_data['project_id'])
+                    if new_project_id:
+                        new_parent_id = subtask_map.get(old_parent_id) if old_parent_id else None
+                        is_sp = s_data.get('is_side_project', False)
+                        
+                        # Smart Matching: compares title + project_id + parent_id + is_side_project
+                        existing = SubTask.query.filter_by(
+                            title=s_data['title'],
+                            project_id=new_project_id,
+                            parent_id=new_parent_id,
+                            is_side_project=is_sp
+                        ).first()
+                        
+                        if existing:
+                            subtask_map[s_data['id']] = existing.id
+                            counts["subtasks_skipped"] += 1
+                        else:
+                            s = SubTask(
+                                title=s_data['title'],
+                                is_completed=s_data.get('is_completed', False),
+                                project_id=new_project_id,
+                                parent_id=new_parent_id,
+                                is_side_project=is_sp,
+                                order_index=s_data.get('order_index', 0)
+                            )
+                            db.session.add(s)
+                            db.session.flush()
+                            subtask_map[s_data['id']] = s.id
+                            counts["subtasks_added"] += 1
+                            
                     queue.remove(s_data)
                     progress = True
                     
         # Fallback for remaining items in case of cyclic/broken imports
         for s_data in queue:
-            s = SubTask(
-                title=s_data['title'],
-                is_completed=s_data['is_completed'],
-                project_id=s_data['db_project_id'],
-                parent_id=None,
-                is_side_project=s_data['is_side_project'],
-                order_index=s_data['order_index']
-            )
-            db.session.add(s)
-            db.session.flush()
-            subtask_map[str(s_data['id'])] = s.id
-            counts["subtasks_added"] += 1
+            new_project_id = project_map.get(s_data['project_id'])
+            if new_project_id:
+                is_sp = s_data.get('is_side_project', False)
+                s = SubTask(
+                    title=s_data['title'],
+                    is_completed=s_data.get('is_completed', False),
+                    project_id=new_project_id,
+                    parent_id=None,
+                    is_side_project=is_sp,
+                    order_index=s_data.get('order_index', 0)
+                )
+                db.session.add(s)
+                db.session.flush()
+                subtask_map[s_data['id']] = s.id
+                counts["subtasks_added"] += 1
 
-        # 3. Habits
+        # 3. Habits — match: name + group_name + color + notes
         for h_data in tables.get("habits", []):
-            import_id = f"h_{h_data['id']}"
             existing = Habit.query.filter_by(
                 name=h_data['name'],
                 group_name=h_data['group_name'],
                 color=h_data['color']
             ).first()
+            # Also verify notes match
             if existing and (existing.notes or '') != (h_data.get('notes') or ''):
                 existing = None
 
@@ -1931,17 +2090,10 @@ def import_data():
                 habit_map[h_data['id']] = existing.id
                 counts["habits_skipped"] += 1
             else:
-                if selected_ids is not None and import_id not in selected_ids:
-                    continue
-                
-                h_fields = h_data
-                if import_id in edited_items:
-                    h_fields = edited_items[import_id]
-
                 h = Habit(
-                    name=h_fields['name'], icon=h_data.get('icon', 'fas fa-dumbbell'), color=h_fields['color'],
-                    notes=h_fields.get('notes', ''), group_name=h_data.get('group_name', 'General'),
-                    best_streak=h_data.get('best_streak', 0), order_index=h_data.get('order_index', 0),
+                    name=h_data['name'], icon=h_data['icon'], color=h_data['color'],
+                    notes=h_data['notes'], group_name=h_data['group_name'], best_streak=h_data['best_streak'],
+                    order_index=h_data['order_index'],
                     created_at=parse_dt(h_data.get('created_at')) or datetime.utcnow()
                 )
                 db.session.add(h)
@@ -1949,7 +2101,7 @@ def import_data():
                 habit_map[h_data['id']] = h.id
                 counts["habits_added"] += 1
 
-        # 4. Habit Entries (Only for habits that we didn't skip from selection)
+        # 4. Habit Entries — match: habit (via name+group map) + date + completed
         for e_data in tables.get("habit_entries", []):
             new_habit_id = habit_map.get(e_data['habit_id'])
             if not new_habit_id: continue
@@ -1966,9 +2118,8 @@ def import_data():
                 ))
                 counts["habit_entries_added"] += 1
 
-        # 5. Templates
+        # 5. Templates — match: name + set of template subtask titles
         for t_data in tables.get("task_templates", []):
-            import_id = f"t_{t_data['id']}"
             import_sub_titles = import_tsubs_by_template.get(t_data['id'], set())
             candidates = TaskTemplate.query.filter_by(name=t_data['name']).all()
             existing = None
@@ -1981,33 +2132,23 @@ def import_data():
                 template_map[t_data['id']] = existing.id
                 counts["templates_skipped"] += 1
             else:
-                if selected_ids is not None and import_id not in selected_ids:
-                    continue
-                
-                t_fields = t_data
-                if import_id in edited_items:
-                    t_fields = edited_items[import_id]
-
                 t = TaskTemplate(
-                    name=t_fields['name'], category=t_fields.get('category', 'General'),
-                    priority=t_fields.get('priority', 'Normal'), notes=t_fields.get('notes', ''),
-                    tags=",".join(t_fields['tags']) if isinstance(t_fields.get('tags'), list) else t_fields.get('tags', ''),
+                    name=t_data['name'], category=t_data['category'],
+                    priority=t_data['priority'], notes=t_data['notes'],
+                    tags=",".join(t_data['tags']) if isinstance(t_data['tags'], list) else t_data['tags'],
                     created_at=parse_dt(t_data.get('created_at')) or datetime.utcnow()
                 )
                 db.session.add(t)
                 db.session.flush()
                 template_map[t_data['id']] = t.id
                 counts["templates_added"] += 1
-                
-                # Subtasks for template
-                t_subs = []
-                if import_id in edited_items and 'subtasks' in edited_items[import_id]:
-                    t_subs = edited_items[import_id]['subtasks']
-                else:
-                    t_subs = [{"title": ts['title']} for ts in tables.get("template_subtasks", []) if ts['template_id'] == t_data['id']]
-                    
-                for ts_data in t_subs:
-                    db.session.add(TemplateSubTask(title=ts_data['title'], template_id=t.id))
+
+        # Template subtasks — only for newly created templates
+        for ts_data in tables.get("template_subtasks", []):
+            new_template_id = template_map.get(ts_data['template_id'])
+            if not new_template_id: continue
+            if not TemplateSubTask.query.filter_by(title=ts_data['title'], template_id=new_template_id).first():
+                db.session.add(TemplateSubTask(title=ts_data['title'], template_id=new_template_id))
 
         # 6. Settings
         for set_data in tables.get("settings", []):
@@ -2041,6 +2182,48 @@ def import_data():
                     unlocked_at=parse_dt(ach_data.get('unlocked_at')) or datetime.utcnow()
                 ))
 
+        # 10. Inbox Items
+        for i_data in tables.get("inbox_items", []):
+            existing = InboxItem.query.filter_by(title=i_data['title']).first()
+            if existing:
+                counts["inbox_items_skipped"] += 1
+            else:
+                item = InboxItem(
+                    title=i_data['title'],
+                    subtasks_json=i_data.get('subtasks_json'),
+                    notes=i_data.get('notes'),
+                    created_at=parse_dt(i_data.get('created_at')) or datetime.utcnow(),
+                    is_converted=i_data.get('is_converted', False)
+                )
+                db.session.add(item)
+                counts["inbox_items_added"] += 1
+
+        # 11. AI Prompts - match by name
+        for prompt_data in tables.get("ai_prompts", []):
+            existing = AIPrompt.query.filter_by(name=prompt_data['name']).first()
+            if existing:
+                # Update existing prompt with imported data
+                existing.description = prompt_data.get('description', '')
+                existing.prompt_text = prompt_data.get('prompt_text', '')
+                existing.example_input = prompt_data.get('example_input', '')
+                existing.example_output = prompt_data.get('example_output', '')
+                existing.category = prompt_data.get('category', 'General')
+                existing.order_index = prompt_data.get('order_index', 0)
+                counts["prompts_updated"] += 1
+            else:
+                new_prompt = AIPrompt(
+                    name=prompt_data['name'],
+                    description=prompt_data.get('description', ''),
+                    prompt_text=prompt_data.get('prompt_text', ''),
+                    example_input=prompt_data.get('example_input', ''),
+                    example_output=prompt_data.get('example_output', ''),
+                    category=prompt_data.get('category', 'General'),
+                    order_index=prompt_data.get('order_index', 0),
+                    created_at=parse_dt(prompt_data.get('created_at')) or datetime.utcnow()
+                )
+                db.session.add(new_prompt)
+                counts["prompts_added"] += 1
+
         db.session.commit()
         
         return jsonify({
@@ -2052,6 +2235,285 @@ def import_data():
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "message": f"Import failed: {str(e)}"}), 500
+
+@app.route('/inbox')
+def inbox_view():
+    items = InboxItem.query.order_by(InboxItem.created_at.desc()).all()
+    inbox_count = InboxItem.query.count()
+    
+    # Convert to dictionaries for JSON serialization
+    items_dict = [{
+        'id': item.id,
+        'title': item.title,
+        'notes': item.notes,
+        'planned_date': item.planned_date.isoformat() if item.planned_date else None,
+        'created_at': item.created_at.isoformat() if item.created_at else None,
+        'subtasks_json': item.subtasks_json,
+        'is_converted': item.is_converted
+    } for item in items]
+    
+    return render_template('inbox.html', items=items_dict, inbox_count=inbox_count)
+
+@app.route('/inbox/count')
+def inbox_count():
+    count = InboxItem.query.filter_by(is_converted=False).count()
+    return jsonify({"success": True, "count": count})
+
+@app.route('/inbox/add', methods=['POST'])
+def inbox_add():
+    data = request.json or {}
+    title = data.get('title', '').strip()
+    if not title:
+        return jsonify({"success": False, "message": "Title is required"}), 400
+    
+    subtasks = data.get('subtasks', [])
+    notes = data.get('notes', '')
+    planned_date = None
+    if data.get('planned_date'):
+        try:
+            planned_date = datetime.strptime(data['planned_date'], '%Y-%m-%d').date()
+        except:
+            pass
+    
+    item = InboxItem(
+        title=title,
+        subtasks_json=json.dumps(subtasks),
+        notes=notes,
+        planned_date=planned_date
+    )
+    db.session.add(item)
+    db.session.commit()
+    
+    return jsonify({
+        "success": True, 
+        "message": "Item added to Brain Dump",
+        "item": {
+            "id": item.id,
+            "title": item.title,
+            "subtasks": subtasks,
+            "notes": item.notes,
+            "planned_date": str(item.planned_date) if item.planned_date else None,
+            "created_at": item.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        }
+    })
+
+@app.route('/inbox/delete/<int:id>', methods=['POST'])
+def inbox_delete(id):
+    item = InboxItem.query.get_or_404(id)
+    db.session.delete(item)
+    db.session.commit()
+    return jsonify({"success": True, "message": "Item deleted"})
+
+@app.route('/inbox/update-date/<int:id>', methods=['POST'])
+def inbox_update_date(id):
+    item = InboxItem.query.get_or_404(id)
+    data = request.json or {}
+    planned_date_str = data.get('planned_date')
+    if planned_date_str:
+        try:
+            item.planned_date = datetime.strptime(planned_date_str, '%Y-%m-%d').date()
+        except:
+            item.planned_date = None
+    else:
+        item.planned_date = None
+    db.session.commit()
+    return jsonify({"success": True, "planned_date": str(item.planned_date) if item.planned_date else None})
+
+
+def _create_subtasks_from_json(node_list, project_id, parent_id=None, order_start=0):
+    """Recursively create SubTask records from the inbox subtasks_json format."""
+    for idx, node in enumerate(node_list):
+        if not isinstance(node, dict):
+            if str(node).strip():
+                db.session.add(SubTask(
+                    title=str(node).strip(),
+                    project_id=project_id,
+                    parent_id=parent_id,
+                    is_side_project=False,
+                    order_index=order_start + idx
+                ))
+            continue
+
+        node_type = node.get('type', 'subtask')
+        node_title = node.get('title', '').strip()
+        if not node_title:
+            continue
+
+        is_side = (node_type == 'side_project')
+        new_sub = SubTask(
+            title=node_title,
+            project_id=project_id,
+            parent_id=parent_id,
+            is_side_project=is_side,
+            order_index=order_start + idx
+        )
+        db.session.add(new_sub)
+        db.session.flush()
+
+        children = node.get('children', [])
+        if children and is_side:
+            _create_subtasks_from_json(children, project_id, parent_id=new_sub.id)
+
+
+@app.route('/inbox/convert/project/<int:id>', methods=['POST'])
+def inbox_convert_project(id):
+    item = InboxItem.query.get_or_404(id)
+    data = request.json or {}
+    title = data.get('title', item.title).strip()
+    if not title:
+        return jsonify({"success": False, "message": "Title is required"}), 400
+
+    due_date = None
+    if data.get('due_date'):
+        try:
+            due_date = datetime.strptime(data['due_date'], '%Y-%m-%d').date()
+        except:
+            pass
+
+    notes = data.get('notes', item.notes)
+    category = data.get('category', 'General')
+    priority = data.get('priority', 'Normal')
+
+    max_order = db.session.query(func.max(Project.order_index)).scalar() or 0
+    new_project = Project(
+        title=title, category=category, priority=priority,
+        due_date=due_date, notes=notes, order_index=max_order + 1
+    )
+    db.session.add(new_project)
+    db.session.flush()
+
+    subtasks = data.get('subtasks')
+    if subtasks is None:
+        try:
+            subtasks = json.loads(item.subtasks_json) if item.subtasks_json else []
+        except:
+            subtasks = []
+
+    _create_subtasks_from_json(subtasks, new_project.id)
+    item.is_converted = True
+    db.session.commit()
+    return jsonify({"success": True, "message": "Converted to Project", "project_id": new_project.id})
+
+
+@app.route('/inbox/convert/task/<int:id>', methods=['POST'])
+def inbox_convert_task(id):
+    item = InboxItem.query.get_or_404(id)
+    data = request.json or {}
+    title = data.get('title', item.title).strip()
+    if not title:
+        return jsonify({"success": False, "message": "Title is required"}), 400
+
+    due_date = None
+    if data.get('due_date'):
+        try:
+            due_date = datetime.strptime(data['due_date'], '%Y-%m-%d').date()
+        except:
+            pass
+
+    notes = data.get('notes', item.notes)
+    category = data.get('category', 'General')
+    priority = data.get('priority', 'Normal')
+
+    max_order = db.session.query(func.max(Project.order_index)).scalar() or 0
+    new_project = Project(
+        title=title, category=category, priority=priority,
+        due_date=due_date, notes=notes, order_index=max_order + 1
+    )
+    db.session.add(new_project)
+    db.session.flush()
+
+    def flatten_subtasks(node_list):
+        flat = []
+        for node in node_list:
+            if isinstance(node, str):
+                if node.strip(): flat.append(node.strip())
+            elif isinstance(node, dict):
+                t = node.get('title', '').strip()
+                if t: flat.append(t)
+                flat.extend(flatten_subtasks(node.get('children', [])))
+        return flat
+
+    subtasks_raw = data.get('subtasks')
+    if subtasks_raw is None:
+        try:
+            subtasks_raw = json.loads(item.subtasks_json) if item.subtasks_json else []
+        except:
+            subtasks_raw = []
+
+    for idx, s_title in enumerate(flatten_subtasks(subtasks_raw)):
+        db.session.add(SubTask(
+            title=s_title, project_id=new_project.id,
+            is_side_project=False, parent_id=None, order_index=idx
+        ))
+
+    item.is_converted = True
+    db.session.commit()
+    return jsonify({"success": True, "message": "Converted to Task", "project_id": new_project.id})
+
+
+@app.route('/inbox/bulk_convert', methods=['POST'])
+def inbox_bulk_convert():
+    data = request.json or {}
+    ids = data.get('ids', [])
+    target = data.get('target', 'project')
+
+    if not ids:
+        return jsonify({"success": False, "message": "No items selected"}), 400
+
+    items = InboxItem.query.filter(InboxItem.id.in_(ids), InboxItem.is_converted == False).all()
+    max_order = db.session.query(func.max(Project.order_index)).scalar() or 0
+
+    def flatten_all(nodes):
+        flat = []
+        for n in nodes:
+            if isinstance(n, str) and n.strip():
+                flat.append(n.strip())
+            elif isinstance(n, dict):
+                t = n.get('title', '').strip()
+                if t: flat.append(t)
+                flat.extend(flatten_all(n.get('children', [])))
+        return flat
+
+    project_ids = []
+    for idx, item in enumerate(items):
+        new_project = Project(
+            title=item.title, notes=item.notes,
+            order_index=max_order + idx + 1, category='General', priority='Normal'
+        )
+        db.session.add(new_project)
+        db.session.flush()
+        project_ids.append(new_project.id)
+
+        try:
+            subtasks = json.loads(item.subtasks_json) if item.subtasks_json else []
+        except:
+            subtasks = []
+
+        if target == 'project':
+            _create_subtasks_from_json(subtasks, new_project.id)
+        else:
+            for s_idx, s_title in enumerate(flatten_all(subtasks)):
+                db.session.add(SubTask(
+                    title=s_title, project_id=new_project.id,
+                    is_side_project=False, parent_id=None, order_index=s_idx
+                ))
+
+        item.is_converted = True
+
+    db.session.commit()
+    return jsonify({"success": True, "message": f"{len(items)} items converted", "project_ids": project_ids})
+
+
+@app.route('/inbox/bulk_delete', methods=['POST'])
+def inbox_bulk_delete():
+    data = request.json or {}
+    ids = data.get('ids', [])
+    if not ids:
+        return jsonify({"success": False, "message": "No items selected"}), 400
+
+    InboxItem.query.filter(InboxItem.id.in_(ids)).delete(synchronize_session=False)
+    db.session.commit()
+    return jsonify({"success": True, "message": "Selected items deleted"})
 
 @app.route('/clear_all_data', methods=['POST'])
 def clear_all_data():
@@ -2067,6 +2529,7 @@ def clear_all_data():
         TaskTemplate.query.delete()
         DailyActivity.query.delete()
         Achievement.query.delete()
+        InboxItem.query.delete()
         # Keep Quotes and Settings (user preferences)
     elif target == 'archived':
         Project.query.filter_by(is_archived=True).delete()
@@ -2101,6 +2564,30 @@ def choose_backup_folder():
         return jsonify({"success": False, "message": "No folder selected"})
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/inbox/restore/<int:id>', methods=['POST'])
+def inbox_restore(id):
+    """Restore a previously deleted inbox item (for undo)"""
+    data = request.json
+    item = InboxItem(
+        id=data.get('id'),
+        title=data['title'],
+        subtasks_json=data.get('subtasks_json'),
+        notes=data.get('notes'),
+        planned_date=datetime.strptime(data['planned_date'], '%Y-%m-%d').date() if data.get('planned_date') else None,
+        created_at=datetime.fromisoformat(data['created_at']) if data.get('created_at') else datetime.utcnow(),
+        is_converted=False
+    )
+    db.session.add(item)
+    db.session.commit()
+    return jsonify({"success": True})
+
+@app.route('/project/delete/<int:id>', methods=['DELETE'])
+def project_delete_undo(id):
+    project = Project.query.get_or_404(id)
+    db.session.delete(project)
+    db.session.commit()
+    return jsonify({"success": True})
 
 if __name__ == '__main__':
     auto_backup()

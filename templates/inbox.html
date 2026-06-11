@@ -1,0 +1,992 @@
+{% extends "base.html" %}
+
+{% block title %}Brain Dump - TaskFlow Noir{% endblock %}
+
+{% block style %}
+<!-- SortableJS for Drag and Drop in Boxes View -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+<style>
+    /* Premium Animations & Styles */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .view-container { display: none; animation: fadeIn 0.3s ease-out; }
+    .view-container.active { display: block; }
+    
+    .item-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 1rem;
+        padding: 1.25rem;
+    }
+    .item-card:hover {
+        border-color: var(--accent);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+    
+    /* Layout specific */
+    .grid-view {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+    .list-view {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    /* Boxes (Kanban) View */
+    .boxes-board {
+        display: flex;
+        gap: 1.5rem;
+        overflow-x: auto;
+        padding-bottom: 1rem;
+        min-height: 60vh;
+        align-items: flex-start;
+    }
+    .box-column {
+        flex: 0 0 320px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        display: flex;
+        flex-direction: column;
+        max-height: 80vh;
+    }
+    .box-column-header {
+        padding: 1rem;
+        border-bottom: 1px solid var(--border);
+        font-weight: bold;
+        position: sticky;
+        top: 0;
+        background: inherit;
+        z-index: 10;
+        border-radius: 1rem 1rem 0 0;
+    }
+    .box-column-content {
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        overflow-y: auto;
+        flex-grow: 1;
+        min-height: 150px;
+    }
+    
+    /* Calendar View */
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 0.5rem;
+    }
+    .calendar-day {
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        min-height: 120px;
+        padding: 0.5rem;
+        background: rgba(255,255,255,0.01);
+    }
+    .calendar-day.today {
+        border-color: var(--accent);
+        background: rgba(255,255,255,0.03);
+    }
+    
+    /* Timeline View */
+    .timeline-container {
+        position: relative;
+        padding-left: 2rem;
+    }
+    .timeline-container::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: var(--border);
+    }
+    .timeline-item {
+        position: relative;
+        margin-bottom: 2rem;
+    }
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -2.35rem;
+        top: 0.5rem;
+        width: 1rem;
+        height: 1rem;
+        border-radius: 50%;
+        background: var(--accent);
+        border: 3px solid var(--bg);
+    }
+    
+    .sortable-ghost { opacity: 0.4; }
+    .sortable-drag { cursor: grabbing !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6 pb-24">
+    <!-- Header & Controls -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-3xl font-extrabold tracking-tight text-white flex items-center gap-2">
+                <span>🧠</span> Brain Dump
+            </h2>
+            <p class="text-gray-400 text-sm mt-1">Organize your thoughts into actionable tasks.</p>
+        </div>
+        
+        <div class="flex items-center gap-3">
+            <div class="flex bg-white/5 border border-white/10 rounded-xl p-1">
+                <button onclick="window.switchView('list')" class="view-btn px-3 py-1.5 rounded-lg text-gray-400 hover:text-white transition" data-view="list" title="List"><i class="fas fa-list"></i></button>
+                <button onclick="window.switchView('grid')" class="view-btn px-3 py-1.5 rounded-lg text-gray-400 hover:text-white transition" data-view="grid" title="Grid"><i class="fas fa-th-large"></i></button>
+                <button onclick="window.switchView('boxes')" class="view-btn px-3 py-1.5 rounded-lg text-gray-400 hover:text-white transition" data-view="boxes" title="Boxes"><i class="fas fa-columns"></i></button>
+                <button onclick="window.switchView('calendar')" class="view-btn px-3 py-1.5 rounded-lg text-gray-400 hover:text-white transition" data-view="calendar" title="Calendar"><i class="fas fa-calendar-alt"></i></button>
+                <button onclick="window.switchView('timeline')" class="view-btn px-3 py-1.5 rounded-lg text-gray-400 hover:text-white transition" data-view="timeline" title="Timeline"><i class="fas fa-stream"></i></button>
+            </div>
+            <button onclick="window.openModal('addInboxModal')" class="px-5 py-2.5 rounded-xl bg-white text-black font-bold hover:scale-[1.02] transition shadow-lg flex items-center gap-2">
+                <i class="fas fa-plus"></i> New Item
+            </button>
+        </div>
+    </div>
+    
+    <!-- Toolbar (Search & Selection) -->
+    <div class="flex flex-col md:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/5">
+        <div class="flex items-center gap-3 w-full md:w-auto">
+            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-300 select-none">
+                <input type="checkbox" id="selectAllCheckbox" onchange="window.toggleSelectAll()" class="w-4 h-4 rounded border-white/10 bg-white/5 text-white focus:ring-0">
+                <span>Select All</span>
+            </label>
+            <span id="bulkCountText" class="text-xs text-gray-400 hidden">0 selected</span>
+        </div>
+        <div class="relative w-full md:w-64">
+            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"></i>
+            <input type="text" id="searchInput" onkeyup="window.filterItems()" placeholder="Search..." class="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-white/30 transition">
+        </div>
+    </div>
+    
+    <!-- Views Container -->
+    <div id="viewsContainer">
+        
+        <!-- LIST VIEW -->
+        <div id="view-list" class="view-container active">
+            <div class="list-view" id="listContainer">
+                <!-- Rendered via JS -->
+            </div>
+        </div>
+        
+        <!-- GRID VIEW -->
+        <div id="view-grid" class="view-container">
+            <div class="grid-view" id="gridContainer">
+                <!-- Rendered via JS -->
+            </div>
+        </div>
+        
+        <!-- BOXES (KANBAN) VIEW -->
+        <div id="view-boxes" class="view-container">
+            <div class="boxes-board">
+                <!-- Unplanned -->
+                <div class="box-column">
+                    <div class="box-column-header flex justify-between items-center text-gray-300">
+                        <span>Inbox</span>
+                        <span class="text-xs bg-white/10 px-2 py-1 rounded-full" id="count-unplanned">0</span>
+                    </div>
+                    <div class="box-column-content sortable-col" data-date="">
+                    </div>
+                </div>
+                <!-- Today -->
+                <div class="box-column">
+                    <div class="box-column-header flex justify-between items-center text-blue-300 border-b-blue-500/30">
+                        <span>Today</span>
+                        <span class="text-xs bg-blue-500/10 px-2 py-1 rounded-full" id="count-today">0</span>
+                    </div>
+                    <div class="box-column-content sortable-col" data-date="today">
+                    </div>
+                </div>
+                <!-- Tomorrow -->
+                <div class="box-column">
+                    <div class="box-column-header flex justify-between items-center text-green-300 border-b-green-500/30">
+                        <span>Tomorrow</span>
+                        <span class="text-xs bg-green-500/10 px-2 py-1 rounded-full" id="count-tomorrow">0</span>
+                    </div>
+                    <div class="box-column-content sortable-col" data-date="tomorrow">
+                    </div>
+                </div>
+                <!-- Later -->
+                <div class="box-column">
+                    <div class="box-column-header flex justify-between items-center text-purple-300 border-b-purple-500/30">
+                        <span>Later</span>
+                        <span class="text-xs bg-purple-500/10 px-2 py-1 rounded-full" id="count-later">0</span>
+                    </div>
+                    <div class="box-column-content sortable-col" data-date="later">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- CALENDAR VIEW -->
+        <div id="view-calendar" class="view-container">
+            <div class="flex justify-between items-center mb-4">
+                <button onclick="window.changeCalendarMonth(-1)" class="p-2 bg-white/5 rounded-lg hover:bg-white/10 text-white"><i class="fas fa-chevron-left"></i></button>
+                <h3 id="calendarMonthLabel" class="text-xl font-bold text-white"></h3>
+                <button onclick="window.changeCalendarMonth(1)" class="p-2 bg-white/5 rounded-lg hover:bg-white/10 text-white"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            <div class="calendar-grid mb-2 text-center text-xs font-bold text-gray-500 uppercase">
+                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+            </div>
+            <div class="calendar-grid" id="calendarDays">
+                <!-- Rendered via JS -->
+            </div>
+        </div>
+        
+        <!-- TIMELINE VIEW -->
+        <div id="view-timeline" class="view-container">
+            <div class="timeline-container" id="timelineContainer">
+                <!-- Rendered via JS -->
+            </div>
+        </div>
+        
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden text-center py-20 border border-dashed border-white/10 rounded-3xl mt-6">
+            <p class="text-5xl">🧠</p>
+            <h3 class="text-lg font-bold text-white mt-4">Your brain dump is clear</h3>
+            <p class="text-gray-500 text-sm mt-1">Get those ideas out of your head and into the flow.</p>
+        </div>
+    </div>
+    
+    <!-- Bulk Actions Sticky Bar -->
+    <div id="bulkActionBar" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 bg-black/80 backdrop-blur border border-white/10 py-3 px-6 rounded-2xl flex items-center gap-4 shadow-2xl transition-all duration-300 translate-y-20 opacity-0 pointer-events-none">
+        <span id="bulkBarCount" class="text-sm font-bold text-white">0 selected</span>
+        <div class="h-4 w-px bg-white/10"></div>
+        <div class="flex items-center gap-2">
+            <button onclick="window.bulkConvert('project')" class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-semibold flex items-center gap-1.5 transition">
+                <i class="fas fa-folder"></i> Projects
+            </button>
+            <button onclick="window.bulkConvert('task')" class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-semibold flex items-center gap-1.5 transition">
+                <i class="fas fa-check-circle"></i> Tasks
+            </button>
+            <button onclick="window.bulkDelete()" class="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs font-semibold flex items-center gap-1.5 transition">
+                <i class="far fa-trash-alt"></i> Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ADD MODAL -->
+<div id="addInboxModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="noir-card p-6 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-fade-in-up">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                <span>🧠</span> Add to Brain Dump
+            </h3>
+            <button onclick="window.closeModal('addInboxModal')" class="text-gray-500 hover:text-white text-xl">&times;</button>
+        </div>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-xs font-bold uppercase text-gray-400 mb-2">Title</label>
+                <input type="text" id="addTitle" class="w-full px-4 py-2.5 text-white" placeholder="What's on your mind?">
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-gray-400 mb-2">Planned Date</label>
+                    <input type="date" id="addPlannedDate" class="w-full px-4 py-2.5 text-white">
+                </div>
+            </div>
+
+            <div class="border-t border-white/5 pt-4">
+                <div class="flex justify-between items-center mb-3">
+                    <label class="block text-xs font-bold uppercase text-gray-400">Structure (Hierarchy)</label>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="window.addNode('addTree', 'subtask')" class="text-xs px-2 py-1 bg-white/5 hover:bg-white/10 rounded border border-white/10 text-white"><i class="fas fa-plus"></i> Subtask</button>
+                        <button type="button" onclick="window.addNode('addTree', 'side_project')" class="text-xs px-2 py-1 bg-blue-500/10 hover:bg-blue-500/20 rounded border border-blue-500/20 text-blue-300"><i class="fas fa-folder-plus"></i> Side Project</button>
+                    </div>
+                </div>
+                <div id="addTree" class="space-y-2 pl-2 border-l border-white/10"></div>
+            </div>
+
+            <div class="border-t border-white/5 pt-4">
+                <label class="block text-xs font-bold uppercase text-gray-400 mb-2">Notes</label>
+                <textarea id="addNotes" rows="3" class="w-full px-4 py-2.5 text-white"></textarea>
+            </div>
+        </div>
+        <div class="flex justify-end gap-3 mt-6">
+            <button onclick="window.closeModal('addInboxModal')" class="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-white/10 font-semibold text-sm transition">Cancel</button>
+            <button onclick="window.submitAdd()" class="px-4 py-2 rounded-xl bg-white text-black font-semibold text-sm hover:scale-[1.02] transition">Add Item</button>
+        </div>
+    </div>
+</div>
+
+<!-- CONVERT MODAL -->
+<div id="convertModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="noir-card p-6 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-fade-in-up">
+        <div class="flex justify-between items-center mb-6">
+            <h3 id="convertTitleLabel" class="text-xl font-bold text-white flex items-center gap-2">
+                <span>📁</span> Convert
+            </h3>
+            <button onclick="window.closeModal('convertModal')" class="text-gray-500 hover:text-white text-xl">&times;</button>
+        </div>
+        
+        <input type="hidden" id="convertId">
+        <input type="hidden" id="convertType">
+        
+        <div class="space-y-4">
+            <div>
+                <label class="block text-xs font-bold uppercase text-gray-400 mb-2">Title</label>
+                <input type="text" id="convTitle" class="w-full px-4 py-2.5 text-white">
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-gray-400 mb-2">Category</label>
+                    <select id="convCategory" class="w-full px-4 py-2.5 text-white">
+                        <option value="General">General</option>
+                        <option value="Work">Work</option>
+                        <option value="Personal">Personal</option>
+                        <option value="Learning">Learning</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-gray-400 mb-2">Priority</label>
+                    <select id="convPriority" class="w-full px-4 py-2.5 text-white">
+                        <option value="Low">Low</option>
+                        <option value="Normal" selected>Normal</option>
+                        <option value="High">High</option>
+                        <option value="Urgent">Urgent</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-gray-400 mb-2">Due Date</label>
+                    <input type="date" id="convDueDate" class="w-full px-4 py-2.5 text-white">
+                </div>
+            </div>
+
+            <div class="border-t border-white/5 pt-4">
+                <div class="flex justify-between items-center mb-3">
+                    <label class="block text-xs font-bold uppercase text-gray-400">Structure</label>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="window.addNode('convTree', 'subtask')" class="text-xs px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-white"><i class="fas fa-plus"></i> Subtask</button>
+                        <button type="button" onclick="window.addNode('convTree', 'side_project')" class="text-xs px-2 py-1 bg-blue-500/10 hover:bg-blue-500/20 rounded text-blue-300"><i class="fas fa-folder-plus"></i> Side Project</button>
+                    </div>
+                </div>
+                <div id="convTree" class="space-y-2 pl-2 border-l border-white/10"></div>
+                <p id="convTaskWarning" class="text-xs text-yellow-400 mt-2 hidden"><i class="fas fa-exclamation-triangle"></i> Converting to Task flattens Side Projects into standard subtasks.</p>
+            </div>
+
+            <div class="border-t border-white/5 pt-4">
+                <label class="block text-xs font-bold uppercase text-gray-400 mb-2">Notes</label>
+                <textarea id="convNotes" rows="3" class="w-full px-4 py-2.5 text-white"></textarea>
+            </div>
+        </div>
+        
+        <div class="flex justify-end gap-3 mt-6">
+            <button onclick="window.closeModal('convertModal')" class="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition">Cancel</button>
+            <button onclick="window.submitConvert()" id="convSubmitBtn" class="px-4 py-2 rounded-xl bg-white text-black font-bold hover:scale-[1.02] transition">Convert</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Data storage
+    let rawItems = {{ items|tojson if items else '[]' }};
+    let currentView = localStorage.getItem('inboxView') || 'list';
+
+    // Undo System
+    window.lastUndoAction = null;
+    let undoTimeout = null;
+
+    window.storeUndoAction = (type, data) => {
+        if (undoTimeout) clearTimeout(undoTimeout);
+        window.lastUndoAction = { type, data, timestamp: Date.now() };
+        
+        // Show toast with undo option
+        const actionNames = {
+            'convert_project': 'converted to Project',
+            'convert_task': 'converted to Task',
+            'delete': 'deleted',
+            'bulk_convert': 'items converted',
+            'bulk_delete': 'items deleted'
+        };
+        const msg = actionNames[type] || 'Action completed';
+        window.showToastWithUndo(msg);
+        
+        // Auto-expire after 5 seconds
+        undoTimeout = setTimeout(() => {
+            window.lastUndoAction = null;
+        }, 5000);
+    };
+
+    window.showToastWithUndo = (message) => {
+        const toast = document.getElementById('toast');
+        if (!toast) return;
+        
+        toast.innerHTML = `✅ ${message} &nbsp;&nbsp; <span style="cursor:pointer;text-decoration:underline" onclick="window.undoLastAction()">Undo (Ctrl+Z)</span> <span style="cursor:pointer;margin-left:8px" onclick="this.parentElement.classList.add('translate-y-24','opacity-0')">✕</span>`;
+        toast.className = 'fixed bottom-10 right-10 px-8 py-4 rounded-xl font-bold transform translate-y-0 opacity-100 transition-all duration-500 z-50 shadow-2xl text-sm uppercase tracking-widest border';
+        toast.style.backgroundColor = 'var(--surface)';
+        toast.style.color = 'var(--text)';
+        toast.style.borderColor = 'var(--border)';
+        
+        setTimeout(() => {
+            if (toast.innerHTML.includes('Undo')) {
+                toast.classList.add('translate-y-24', 'opacity-0');
+            }
+        }, 5000);
+    };
+
+    window.undoLastAction = async () => {
+        if (!window.lastUndoAction) {
+            window.showToast('Nothing to undo', 'info');
+            return;
+        }
+        
+        const action = window.lastUndoAction;
+        
+        if (action.type === 'convert_project' || action.type === 'convert_task') {
+            await fetch(`/project/delete/${action.data.projectId}`, { method: 'DELETE' });
+            await fetch('/inbox/restore/0', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(action.data.itemData)
+            });
+            rawItems.push(action.data.itemData);
+            window.renderAllViews();
+            window.showToast('Undo successful', 'success');
+        }
+        else if (action.type === 'delete') {
+            await fetch('/inbox/restore/0', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(action.data.itemData)
+            });
+            rawItems.push(action.data.itemData);
+            window.renderAllViews();
+            window.showToast('Item restored', 'success');
+        }
+        else if (action.type === 'bulk_convert') {
+            for (const projectId of action.data.projectIds) {
+                await fetch(`/project/delete/${projectId}`, { method: 'DELETE' });
+            }
+            for (const itemData of action.data.itemsData) {
+                await fetch('/inbox/restore/0', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(itemData)
+                });
+                rawItems.push(itemData);
+            }
+            window.renderAllViews();
+            window.showToast('Bulk convert undone', 'success');
+        }
+        else if (action.type === 'bulk_delete') {
+            for (const itemData of action.data.itemsData) {
+                await fetch('/inbox/restore/0', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(itemData)
+                });
+                rawItems.push(itemData);
+            }
+            window.renderAllViews();
+            window.showToast('Items restored', 'success');
+        }
+        
+        window.lastUndoAction = null;
+        if (undoTimeout) clearTimeout(undoTimeout);
+    };
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'z' && e.ctrlKey && !e.shiftKey) {
+            e.preventDefault();
+            if (window.lastUndoAction) {
+                window.undoLastAction();
+            }
+        }
+    });
+
+    
+    // Core initialization
+    document.addEventListener('DOMContentLoaded', () => {
+        window.switchView(currentView);
+        window.renderAllViews();
+        window.setupSortable();
+        window.updateInboxBadge();
+    });
+
+    // Utilities
+    window.escapeHtml = (unsafe) => {
+        return (unsafe || '').toString()
+             .replace(/&/g, "&amp;")
+             .replace(/</g, "&lt;")
+             .replace(/>/g, "&gt;")
+             .replace(/"/g, "&quot;")
+             .replace(/'/g, "&#039;");
+    };
+
+    window.formatDate = (dateStr) => {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        return d.toLocaleDateString();
+    };
+
+    window.getTodayStr = () => new Date().toISOString().split('T')[0];
+    window.getTomorrowStr = () => {
+        let d = new Date();
+        d.setDate(d.getDate() + 1);
+        return d.toISOString().split('T')[0];
+    };
+
+    // Card template generator
+    window.generateCardHTML = (item, isBox = false) => {
+        const subs = item.subtasks_json ? (typeof item.subtasks_json === 'string' ? JSON.parse(item.subtasks_json) : item.subtasks_json) : [];
+        let subsHtml = '';
+        
+        const _renderSubsPreview = (nodes) => {
+            let h = '';
+            nodes.forEach(n => {
+                if (typeof n === 'string') {
+                    h += `<span class="text-[10px] px-2 py-0.5 rounded bg-white/5 border border-white/10 text-gray-400 whitespace-nowrap overflow-hidden text-ellipsis max-w-full block mb-1">○ ${window.escapeHtml(n)}</span>`;
+                } else if (n.type === 'side_project') {
+                    h += `<div class="mb-1 p-1.5 rounded bg-blue-500/10 border border-blue-500/20">
+                            <div class="text-[10px] text-blue-300 font-bold mb-1 flex items-center gap-1"><i class="fas fa-folder"></i> ${window.escapeHtml(n.title)}</div>
+                            <div class="pl-2 border-l border-blue-500/30">${n.children ? _renderSubsPreview(n.children) : ''}</div>
+                          </div>`;
+                } else {
+                    h += `<span class="text-[10px] px-2 py-0.5 rounded bg-white/5 border border-white/10 text-gray-400 whitespace-nowrap overflow-hidden text-ellipsis max-w-full block mb-1">○ ${window.escapeHtml(n.title)}</span>`;
+                }
+            });
+            return h;
+        };
+        
+        if (subs && subs.length > 0) {
+            subsHtml = `<div class="mt-2 space-y-1">${_renderSubsPreview(subs.slice(0, 3))} ${subs.length > 3 ? '<span class="text-[10px] text-gray-500 italic">...more</span>' : ''}</div>`;
+        }
+        
+        const dateTag = item.planned_date ? 
+            `<span class="text-xs px-2 py-1 rounded bg-purple-500/20 text-purple-300 mt-2 inline-block"><i class="far fa-calendar"></i> ${window.formatDate(item.planned_date)}</span>` : '';
+
+        return `
+            <div class="item-card relative group search-target" data-id="${item.id}" data-title="${window.escapeHtml(item.title).toLowerCase()}">
+                <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                    <button onclick="window.openConvertModal(${item.id}, 'project')" class="p-1.5 rounded bg-white/10 hover:bg-white/20 text-white" title="Project"><i class="fas fa-folder text-xs"></i></button>
+                    <button onclick="window.openConvertModal(${item.id}, 'task')" class="p-1.5 rounded bg-white/10 hover:bg-white/20 text-white" title="Task"><i class="fas fa-check text-xs"></i></button>
+                    <button onclick="window.deleteItem(${item.id})" class="p-1.5 rounded bg-red-500/20 hover:bg-red-500/30 text-red-400" title="Delete"><i class="fas fa-trash text-xs"></i></button>
+                </div>
+                
+                <div class="flex items-start gap-3 w-[calc(100%-60px)]">
+                    <input type="checkbox" name="item_ids" value="${item.id}" onchange="window.updateBulkBar()" class="mt-1 w-4 h-4 rounded border-white/10 bg-white/5 text-white focus:ring-0 cursor-pointer">
+                    <div class="flex-1 overflow-hidden">
+                        <h4 class="font-bold text-white text-sm md:text-base break-words">${window.escapeHtml(item.title)}</h4>
+                        ${item.notes ? `<p class="text-gray-400 text-xs mt-1 line-clamp-2">${window.escapeHtml(item.notes)}</p>` : ''}
+                        ${dateTag}
+                        ${subsHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
+    // Render Logic
+    window.renderAllViews = () => {
+        const isEmpty = rawItems.length === 0;
+        document.getElementById('emptyState').classList.toggle('hidden', !isEmpty);
+        document.getElementById('viewsContainer').classList.toggle('hidden', isEmpty);
+        
+        if (isEmpty) return;
+
+        // List & Grid
+        let html = rawItems.map(i => window.generateCardHTML(i)).join('');
+        document.getElementById('listContainer').innerHTML = html;
+        document.getElementById('gridContainer').innerHTML = html;
+        
+        // Boxes
+        const today = window.getTodayStr();
+        const tomorrow = window.getTomorrowStr();
+        
+        const boxes = { '': [], 'today': [], 'tomorrow': [], 'later': [] };
+        rawItems.forEach(i => {
+            if (!i.planned_date) boxes[''].push(i);
+            else if (i.planned_date === today) boxes['today'].push(i);
+            else if (i.planned_date === tomorrow) boxes['tomorrow'].push(i);
+            else boxes['later'].push(i);
+        });
+        
+        document.querySelector('.box-column-content[data-date=""]').innerHTML = boxes[''].map(i => window.generateCardHTML(i, true)).join('');
+        document.querySelector('.box-column-content[data-date="today"]').innerHTML = boxes['today'].map(i => window.generateCardHTML(i, true)).join('');
+        document.querySelector('.box-column-content[data-date="tomorrow"]').innerHTML = boxes['tomorrow'].map(i => window.generateCardHTML(i, true)).join('');
+        document.querySelector('.box-column-content[data-date="later"]').innerHTML = boxes['later'].map(i => window.generateCardHTML(i, true)).join('');
+        
+        document.getElementById('count-unplanned').textContent = boxes[''].length;
+        document.getElementById('count-today').textContent = boxes['today'].length;
+        document.getElementById('count-tomorrow').textContent = boxes['tomorrow'].length;
+        document.getElementById('count-later').textContent = boxes['later'].length;
+        
+        // Calendar & Timeline
+        window.renderCalendar();
+        window.renderTimeline();
+    };
+
+    // SortableJS Setup
+    window.setupSortable = () => {
+        const cols = document.querySelectorAll('.sortable-col');
+        cols.forEach(col => {
+            new Sortable(col, {
+                group: 'inbox',
+                animation: 150,
+                onEnd: (evt) => {
+                    const itemEl = evt.item;
+                    const toCol = evt.to;
+                    const itemId = itemEl.getAttribute('data-id');
+                    const newDateCat = toCol.getAttribute('data-date');
+                    
+                    let targetDate = null;
+                    if (newDateCat === 'today') targetDate = window.getTodayStr();
+                    else if (newDateCat === 'tomorrow') targetDate = window.getTomorrowStr();
+                    else if (newDateCat === 'later') {
+                        let d = new Date(); d.setDate(d.getDate() + 7);
+                        targetDate = d.toISOString().split('T')[0];
+                    }
+                    
+                    // Update server
+                    fetch(`/inbox/update-date/${itemId}`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ planned_date: targetDate })
+                    }).then(res => res.json()).then(data => {
+                        // Update raw array silently and re-render the badges
+                        const idx = rawItems.findIndex(i => i.id == itemId);
+                        if(idx > -1) rawItems[idx].planned_date = targetDate;
+                        window.renderAllViews();
+                    });
+                }
+            });
+        });
+    };
+
+    // View Switching
+    window.switchView = (viewName) => {
+        document.querySelectorAll('.view-container').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.view-btn').forEach(b => {
+            b.classList.remove('bg-white', 'text-black', 'shadow');
+            b.classList.add('text-gray-400');
+            if (b.getAttribute('data-view') === viewName) {
+                b.classList.add('bg-white', 'text-black', 'shadow');
+                b.classList.remove('text-gray-400');
+            }
+        });
+        document.getElementById(`view-${viewName}`).classList.add('active');
+        currentView = viewName;
+        localStorage.setItem('inboxView', viewName);
+    };
+
+    // Calendar rendering
+    let calDate = new Date();
+    window.changeCalendarMonth = (dir) => {
+        calDate.setMonth(calDate.getMonth() + dir);
+        window.renderCalendar();
+    };
+    
+    window.renderCalendar = () => {
+        const year = calDate.getFullYear();
+        const month = calDate.getMonth();
+        document.getElementById('calendarMonthLabel').textContent = new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' });
+        
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        
+        const container = document.getElementById('calendarDays');
+        container.innerHTML = '';
+        
+        for (let i = 0; i < firstDay; i++) {
+            container.innerHTML += `<div class="calendar-day opacity-20 pointer-events-none"></div>`;
+        }
+        
+        const todayStr = window.getTodayStr();
+        
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const isToday = dateStr === todayStr;
+            const itemsForDay = rawItems.filter(i => i.planned_date === dateStr);
+            
+            let itemsHtml = itemsForDay.map(i => `
+                <div class="text-[10px] bg-white/10 p-1 mb-1 rounded text-white truncate cursor-pointer hover:bg-white/20" onclick="window.openConvertModal(${i.id}, 'project')">
+                    ${window.escapeHtml(i.title)}
+                </div>
+            `).join('');
+            
+            container.innerHTML += `
+                <div class="calendar-day ${isToday ? 'today' : ''} flex flex-col">
+                    <span class="text-sm font-bold text-gray-400 mb-1 ${isToday ? 'text-accent' : ''}">${d}</span>
+                    <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">${itemsHtml}</div>
+                </div>
+            `;
+        }
+    };
+    
+    // Timeline rendering
+    window.renderTimeline = () => {
+        const container = document.getElementById('timelineContainer');
+        const sortedItems = [...rawItems].filter(i => i.planned_date).sort((a,b) => new Date(a.planned_date) - new Date(b.planned_date));
+        
+        if (sortedItems.length === 0) {
+            container.innerHTML = '<p class="text-gray-500 italic ml-4">No planned items for timeline.</p>';
+            return;
+        }
+        
+        let html = '';
+        sortedItems.forEach(i => {
+            html += `
+                <div class="timeline-item flex gap-4 w-full md:w-2/3">
+                    <div class="w-24 text-sm font-bold text-gray-400 pt-1">${window.formatDate(i.planned_date)}</div>
+                    <div class="flex-1">${window.generateCardHTML(i)}</div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    };
+
+    // Filter & Bulk
+    window.filterItems = () => {
+        const q = document.getElementById('searchInput').value.toLowerCase();
+        document.querySelectorAll('.search-target').forEach(el => {
+            if (el.getAttribute('data-title').includes(q)) el.style.display = '';
+            else el.style.display = 'none';
+        });
+    };
+    
+    window.toggleSelectAll = () => {
+        const checked = document.getElementById('selectAllCheckbox').checked;
+        document.querySelectorAll('input[name="item_ids"]').forEach(c => c.checked = checked);
+        window.updateBulkBar();
+    };
+    
+    window.updateBulkBar = () => {
+        const checked = document.querySelectorAll('input[name="item_ids"]:checked');
+        const bar = document.getElementById('bulkActionBar');
+        if (checked.length > 0) {
+            document.getElementById('bulkCountText').textContent = `${checked.length} selected`;
+            document.getElementById('bulkCountText').classList.remove('hidden');
+            document.getElementById('bulkBarCount').textContent = `${checked.length} selected`;
+            bar.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+        } else {
+            document.getElementById('bulkCountText').classList.add('hidden');
+            bar.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+            document.getElementById('selectAllCheckbox').checked = false;
+        }
+    };
+
+    window.bulkDelete = () => {
+        const ids = Array.from(document.querySelectorAll('input[name="item_ids"]:checked')).map(c => parseInt(c.value));
+        if(!ids.length) return;
+        const itemsData = rawItems.filter(i => ids.includes(i.id));
+        fetch('/inbox/bulk_delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ ids })
+        }).then(res => res.json()).then(data => {
+            if(data.success) {
+                window.storeUndoAction('bulk_delete', { itemsData });
+                rawItems = rawItems.filter(i => !ids.includes(i.id));
+                window.renderAllViews();
+                window.updateBulkBar();
+            }
+        });
+    };
+    
+    window.bulkConvert = (target) => {
+        const ids = Array.from(document.querySelectorAll('input[name="item_ids"]:checked')).map(c => parseInt(c.value));
+        if(!ids.length) return;
+        const itemsData = rawItems.filter(i => ids.includes(i.id));
+        fetch('/inbox/bulk_convert', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ ids, target })
+        }).then(res => res.json()).then(data => {
+            if(data.success) {
+                window.storeUndoAction('bulk_convert', { projectIds: data.project_ids || [], itemsData });
+                rawItems = rawItems.filter(i => !ids.includes(i.id));
+                window.renderAllViews();
+                window.updateBulkBar();
+            }
+        });
+    };
+
+    window.deleteItem = (id) => {
+        const item = rawItems.find(i => i.id === id);
+        if(!item) return;
+        fetch(`/inbox/delete/${id}`, { method: 'POST' }).then(res => res.json()).then(data => {
+            if (data.success) {
+                window.storeUndoAction('delete', { itemData: item });
+                rawItems = rawItems.filter(i => i.id !== id);
+                window.renderAllViews();
+            }
+        });
+    };
+
+    // Hierarchical Node Builder for Modals
+    window.addNode = (containerId, type, parentElement = null, titleValue = '') => {
+        const container = parentElement || document.getElementById(containerId);
+        const nodeDiv = document.createElement('div');
+        nodeDiv.className = 'node-item flex flex-col gap-2 p-2 bg-white/5 border border-white/5 rounded mt-2';
+        nodeDiv.dataset.type = type;
+        
+        let colorClass = type === 'side_project' ? 'text-blue-300' : 'text-gray-300';
+        let icon = type === 'side_project' ? '<i class="fas fa-folder"></i>' : '<i class="far fa-circle"></i>';
+        
+        let innerHtml = `
+            <div class="flex items-center gap-2">
+                <span class="${colorClass}">${icon}</span>
+                <input type="text" class="node-title flex-1 px-3 py-1.5 bg-black/30 border border-white/10 rounded text-sm text-white" placeholder="${type === 'side_project' ? 'Side Project Title' : 'Subtask Title'}" value="${window.escapeHtml(titleValue)}">
+                <button type="button" onclick="this.closest('.node-item').remove()" class="text-gray-500 hover:text-red-400 p-1"><i class="fas fa-times"></i></button>
+            </div>
+        `;
+        
+        if (type === 'side_project') {
+            innerHtml += `
+                <div class="ml-6 pl-2 border-l border-blue-500/30 children-container"></div>
+                <div class="ml-6 mt-1">
+                    <button type="button" onclick="window.addNode(null, 'subtask', this.closest('.node-item').querySelector('.children-container'))" class="text-[10px] px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-gray-300 mr-1">+ Subtask</button>
+                    <button type="button" onclick="window.addNode(null, 'side_project', this.closest('.node-item').querySelector('.children-container'))" class="text-[10px] px-2 py-1 bg-blue-500/10 hover:bg-blue-500/20 rounded text-blue-300">+ Sub-Project</button>
+                </div>
+            `;
+        }
+        
+        nodeDiv.innerHTML = innerHtml;
+        container.appendChild(nodeDiv);
+    };
+
+    window.extractTreeData = (container) => {
+        const nodes = [];
+        Array.from(container.children).forEach(child => {
+            if (child.classList.contains('node-item')) {
+                const type = child.dataset.type;
+                const title = child.querySelector('.node-title').value.trim();
+                if (title) {
+                    const obj = { type, title };
+                    if (type === 'side_project') {
+                        const childContainer = child.querySelector('.children-container');
+                        obj.children = window.extractTreeData(childContainer);
+                    }
+                    nodes.push(obj);
+                }
+            }
+        });
+        return nodes;
+    };
+    
+    window.populateTreeData = (containerId, nodes) => {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        
+        const _build = (nList, parentEl) => {
+            nList.forEach(n => {
+                if (typeof n === 'string') {
+                    window.addNode(null, 'subtask', parentEl, n);
+                } else {
+                    const newNode = window.addNode(null, n.type || 'subtask', parentEl, n.title);
+                    if (n.type === 'side_project' && n.children && n.children.length > 0) {
+                        // find the newly created children container
+                        const lastChild = parentEl.lastElementChild;
+                        const childCont = lastChild.querySelector('.children-container');
+                        _build(n.children, childCont);
+                    }
+                }
+            });
+        };
+        _build(nodes, container);
+    };
+
+    // Add Modal Actions
+    window.submitAdd = () => {
+        const title = document.getElementById('addTitle').value.trim();
+        if (!title) return window.showToast('Title required', 'error');
+        
+        const subtasks = window.extractTreeData(document.getElementById('addTree'));
+        const notes = document.getElementById('addNotes').value;
+        const planned_date = document.getElementById('addPlannedDate').value;
+        
+        fetch('/inbox/add', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ title, subtasks, notes, planned_date })
+        }).then(res => res.json()).then(data => {
+            if (data.success) {
+                rawItems.unshift(data.item);
+                window.renderAllViews();
+                window.closeModal('addInboxModal');
+                window.showToast('Added to Brain Dump', 'success');
+            }
+        });
+    };
+
+    // Convert Modal Actions
+    window.openConvertModal = (id, type) => {
+        const item = rawItems.find(i => i.id === id);
+        if(!item) return;
+        
+        document.getElementById('convertId').value = id;
+        document.getElementById('convertType').value = type;
+        document.getElementById('convTitle').value = item.title;
+        document.getElementById('convNotes').value = item.notes || '';
+        document.getElementById('convDueDate').value = item.planned_date || '';
+        
+        const titleLabel = document.getElementById('convertTitleLabel');
+        const submitBtn = document.getElementById('convSubmitBtn');
+        const taskWarn = document.getElementById('convTaskWarning');
+        
+        if (type === 'project') {
+            titleLabel.innerHTML = '<span>📁</span> Convert to Project';
+            submitBtn.textContent = 'Create Project';
+            taskWarn.classList.add('hidden');
+        } else {
+            titleLabel.innerHTML = '<span>📋</span> Convert to Task';
+            submitBtn.textContent = 'Create Task';
+            taskWarn.classList.remove('hidden');
+        }
+        
+        let parsedSubs = [];
+        try { parsedSubs = typeof item.subtasks_json === 'string' ? JSON.parse(item.subtasks_json) : (item.subtasks_json || []); } catch(e){}
+        window.populateTreeData('convTree', parsedSubs);
+        
+        window.openModal('convertModal');
+    };
+    
+    window.submitConvert = () => {
+        const id = document.getElementById('convertId').value;
+        const type = document.getElementById('convertType').value;
+        
+        const title = document.getElementById('convTitle').value.trim();
+        if(!title) return window.showToast('Title required', 'error');
+        
+        const data = {
+            title,
+            category: document.getElementById('convCategory').value,
+            priority: document.getElementById('convPriority').value,
+            due_date: document.getElementById('convDueDate').value,
+            notes: document.getElementById('convNotes').value,
+            subtasks: window.extractTreeData(document.getElementById('convTree'))
+        };
+        
+        fetch(`/inbox/convert/${type}/${id}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        }).then(res => res.json()).then(resp => {
+            if(resp.success) {
+                const itemData = rawItems.find(i => i.id == id);
+                window.storeUndoAction(type === 'project' ? 'convert_project' : 'convert_task', { projectId: resp.project_id, itemData });
+                rawItems = rawItems.filter(i => i.id != id);
+                window.renderAllViews();
+                window.closeModal('convertModal');
+            }
+        });
+    };
+</script>
+{% endblock %}
