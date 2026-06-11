@@ -23,7 +23,21 @@
 ````
 
 # 📦 Installation
+# Linux !!
+```bash
+git clone https://github.com/6Space6V6/Taskflow-noir
 
+cd Taskflow-noir
+
+python3 -m venv venv
+
+source venv/bin/activate
+
+pip install flask flask-sqlalchemy
+
+python app.py
+```
+# Windows !!
 ```bash
 git clone https://github.com/6Space6V6/Taskflow-noir
 
@@ -33,6 +47,7 @@ pip install flask flask-sqlalchemy
 
 python app.py
 ```
+
 
 Open:
 
